@@ -2,7 +2,11 @@ cmake_minimum_required(VERSION 3.20)
 #project
 project(QT_LYJ)
 #cmake
-include(${CMAKE_CURRENT_LIST_DIR}/../cmake/FuncLyj.cmake)
+if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/cmake/FuncLyj.cmake)
+    include(${CMAKE_CURRENT_LIST_DIR}/cmake/FuncLyj.cmake)
+else()
+    include(${CMAKE_CURRENT_LIST_DIR}/../cmake/FuncLyj.cmake)
+endif()
 #package
 find_package(Qt5 REQUIRED COMPONENTS Widgets Core Gui)
 set(CMAKE_AUTOMOC ON)  # 自动处理 moc 文件
