@@ -2,10 +2,12 @@
 #include <GL/gl.h>       // OpenGL
 #include <GL/glu.h>      // OpenGL Utility Library
 #include <QMatrix4x4>
+#include <iostream>
 
 OpenGLWidget::OpenGLWidget(QWidget *parent)
 	: QOpenGLWidget(parent),
-	m_xRot(0), m_yRot(0), m_isPressed(false), m_lastPos(0, 0), m_scale(-0.1f),
+	m_xRot(0), m_yRot(0), m_detX(0), m_detY(0), m_detZ(0),
+	m_isPressLeft(false), m_isPressRight(false), m_lastPos(0, 0), m_scale(1.f),
 	m_texture(nullptr)
 {
     // 初始化一些三维点
@@ -15,11 +17,25 @@ OpenGLWidget::OpenGLWidget(QWidget *parent)
            << QVector3D(0.0f, 1.0f, 0.0f)
            << QVector3D(0.0f, 0.0f, 1.0f)
            << QVector3D(1.0f, 1.0f, 1.0f);
+	setFocusPolicy(Qt::StrongFocus); // 设置焦点策略，可以接收键盘事件
 }
 
 OpenGLWidget::~OpenGLWidget()
 {
 	delete m_texture;
+}
+
+void OpenGLWidget::addMove(float x, float y, float z)
+{
+	m_detX += x;
+	m_detY += y;
+	m_detZ += z;
+	update();
+}
+
+void OpenGLWidget::print()
+{
+	std::cout << "Hello, OpenGLWidget!" << std::endl;
 }
 
 void OpenGLWidget::initializeGL()
@@ -59,7 +75,7 @@ void OpenGLWidget::paintGL()
 	view.rotate(m_xRot, 1.0f, 0.0f, 0.0f);
 	view.rotate(m_yRot, 0.0f, 1.0f, 0.0f);
 	glLoadMatrixf(view.constData());
-	glTranslatef(m_scale, 0.0f, -1.f);
+	glTranslatef(m_detX * m_scale, m_detY * m_scale, m_detZ * m_scale);
 	//glRotatef(m_xRot, 1.0f, 0.0f, 0.0f); // 绕X轴旋转
 	//glRotatef(m_yRot, 0.0f, 1.0f, 0.0f); // 绕Y轴旋转
 
@@ -133,23 +149,38 @@ void OpenGLWidget::mousePressEvent(QMouseEvent* event)
 {
 	if (event->button() == Qt::LeftButton)
 	{
-		m_isPressed = true;
+		m_isPressLeft = true;
 		m_lastPos = event->pos();
 	}
-	//else
-	//{
-	//	m_isPressed = false;
-	//}
+	else if (event->button() == Qt::RightButton)
+	{
+		m_isPressRight = true;
+		m_lastPos = event->pos();
+	}
+	else
+	{
+		m_isPressLeft = false;
+		m_isPressRight = false;
+	}
 }
 
 void OpenGLWidget::mouseMoveEvent(QMouseEvent* event)
 {
-	if (m_isPressed)
+	if (m_isPressLeft)
 	{
-		int dx = event->x() - m_lastPos.x();
-		int dy = event->y() - m_lastPos.y();
+		float dx = event->x() - m_lastPos.x();
+		float dy = event->y() - m_lastPos.y();
 		m_xRot += dy;
 		m_yRot += dx;
+		m_lastPos = event->pos();
+		update();
+	}
+	else if (m_isPressRight)
+	{
+		float dx = (event->x() - m_lastPos.x()) / 200.f;
+		float dy = (event->y() - m_lastPos.y()) / 200.f;
+		m_detY -= dy;
+		m_detX += dx;
 		m_lastPos = event->pos();
 		update();
 	}
@@ -159,7 +190,8 @@ void OpenGLWidget::mouseReleaseEvent(QMouseEvent* event)
 {
 	if (event->button() == Qt::LeftButton)
 	{
-		m_isPressed = false;
+		m_isPressLeft = false;
+		m_isPressRight = false;
 	}
 }
 
@@ -168,14 +200,21 @@ void OpenGLWidget::keyPressEvent(QKeyEvent* event)
 	switch (event->key())
 	{
 	case Qt::Key_Up:
-		m_scale += 0.1f;
+		m_detY += 0.1f;
 		break;
 	case Qt::Key_Down:
-		m_scale -= 0.1f;
+		m_detY -= 0.1f;
+		break;
+	case Qt::Key_Left:
+		m_detX -= 0.1f;
+		break;
+	case Qt::Key_Right:
+		m_detX += 0.1f;
 		break;
 	default:
 		break;
 	}
+	QOpenGLWidget::keyPressEvent(event);
 	update();
 }
 
@@ -186,6 +225,6 @@ void OpenGLWidget::keyReleaseEvent(QKeyEvent* event)
 
 void OpenGLWidget::wheelEvent(QWheelEvent* event)
 {
-	m_scale += event->delta() / 1200.0f;
+	m_scale *= event->delta() / 1000.0f;
 	update();
 }
