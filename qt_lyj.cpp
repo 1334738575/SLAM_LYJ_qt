@@ -16,6 +16,30 @@ static int testButton()
     return app.exec();
 }
 
+static int testLabel()
+{
+	int argc = 0;
+	char** argv = nullptr;
+	QApplication app(argc, argv);
+	QLabel label("Hello, Qt!");
+	label.resize(200, 100);
+	label.show();
+	return app.exec();
+}
+
+static int testImage()
+{
+	int argc = 0;
+	char** argv = nullptr;
+	QApplication app(argc, argv);
+	QLabel label;
+	QPixmap pixmap("D:/testLyj/build/Release/down.png");
+	label.setPixmap(pixmap);
+	label.resize(pixmap.size());
+	label.show();
+	return app.exec();
+}
+
 static int testWindow()
 {
     int argc = 0;
@@ -89,7 +113,8 @@ static int testOpenGL()
 
 		QObject::connect(button, &QPushButton::clicked, [&]() {
 			OpenGLWindow* w = new OpenGLWindow();
-			w->exec();
+			//w->exec(); //模态对话框，阻塞
+			w->show(); //非模态对话框
 			});
 		window.setLayout(layout);
 		window.resize(800, 600);
@@ -103,8 +128,10 @@ static int testOpenGL()
 int testQT()
 {
 	//testButton();
-	//testWindow();
-	testOpenGL();
+	//testLabel();
+	//testImage();
+	testWindow();
+	//testOpenGL();
 
     return 1;
 }
