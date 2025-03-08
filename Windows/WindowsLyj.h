@@ -8,29 +8,32 @@
 #include <QFileDialog>
 #include <QPixmap>
 
-class OpenGLWidgetLyj;
-class WindowsLyj : public QMainWindow
-{
-    Q_OBJECT
+namespace QT_LYJ {
 
-public:
-    WindowsLyj(QWidget *parent = nullptr);
-	~WindowsLyj();
+	class OpenGLWidgetLyj;
+	class WindowsLyj : public QMainWindow
+	{
+		Q_OBJECT
 
-	void addBotton(const std::string _name, std::function<void()> _func = nullptr);
-	void addLabel(const std::string _name, const std::string _path = "");
-	void changeImage(const std::string _path);
-	void changeImage(QPixmap& _pixmap);
-	void printLog(const std::string _log);
-	void loadModel(const std::string _path);
+	public:
+		WindowsLyj(QWidget* parent = nullptr);
+		~WindowsLyj();
 
-private:
-	std::vector<QLabel*> labels_; //0 for image, 1 for log
-	std::vector<QPushButton*> buttons_;
-	QVBoxLayout* layout_ = nullptr;
-	OpenGLWidgetLyj* openGLWidget_ = nullptr;
-	int w_ = 600;
-	int h_ = 1200;
-};
+		void addBotton(const std::string _name, std::function<void()> _func = nullptr);
+		void addLabel(const std::string _name, const std::string _path = "");
+		void changeImage(const std::string _path);
+		void changeImage(QPixmap& _pixmap);
+		void printLog(const std::string _log);
+		void loadModel(const std::string _path);
 
+	private:
+		std::vector<QLabel*> labels_; //0 for image, 1 for log
+		std::vector<QPushButton*> buttons_;
+		QVBoxLayout* layout_ = nullptr;
+		OpenGLWidgetLyj* openGLWidget_ = nullptr;
+		int w_ = 600;
+		int h_ = 1200;
+	};
+
+}
 #endif // WINDOWS_LYJ_H

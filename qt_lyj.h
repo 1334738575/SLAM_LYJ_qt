@@ -1,5 +1,5 @@
-#ifndef QT_PCL_H
-#define QT_PCL_H
+#ifndef QT_LYJ_H
+#define QT_LYJ_H
 
 #include <iostream>
 
@@ -14,6 +14,13 @@
 #define QT_LYJ_API
 #endif
 
+#define NSP_QT_LYJ_BEGIN namespace QT_LYJ {
+#define NSP_QT_LYJ_END }
+
+NSP_QT_LYJ_BEGIN
+
 QT_LYJ_API int testQT();
 
-#endif // QT_PCL_H
+NSP_QT_LYJ_END
+
+#endif // QT_LYJ_H
