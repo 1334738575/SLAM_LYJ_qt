@@ -4,6 +4,7 @@
 #include "Windows/WindowSLyj.h"
 #include "OpenGLs/OpenGLWidget.h"
 #include <QVBoxLayout>
+#include "SLAM_LYJ.h"
 
 NSP_QT_LYJ_BEGIN
 
