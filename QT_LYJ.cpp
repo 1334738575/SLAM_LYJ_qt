@@ -5,6 +5,7 @@
 #include "OpenGLs/OpenGLWidget.h"
 #include <QVBoxLayout>
 #include "OpenGLs/OpenGLTest.h"
+#include "SLAM_LYJ.h"
 
 NSP_QT_LYJ_BEGIN
 
