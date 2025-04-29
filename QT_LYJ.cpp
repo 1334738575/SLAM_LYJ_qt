@@ -4,6 +4,7 @@
 #include "Windows/WindowSLyj.h"
 #include "OpenGLs/OpenGLWidget.h"
 #include <QVBoxLayout>
+#include "OpenGLs/OpenGLTest.h"
 
 NSP_QT_LYJ_BEGIN
 
@@ -139,6 +140,11 @@ int testQT()
 	// testOpenGL();
 
 	return 1;
+}
+
+QT_LYJ_API int testOpenGLOnly()
+{
+	return testGL();
 }
 
 NSP_QT_LYJ_END

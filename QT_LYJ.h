@@ -20,6 +20,7 @@
 NSP_QT_LYJ_BEGIN
 
 QT_LYJ_API int testQT();
+QT_LYJ_API int testOpenGLOnly();
 
 NSP_QT_LYJ_END
 
