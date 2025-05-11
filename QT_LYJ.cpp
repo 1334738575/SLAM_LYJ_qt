@@ -5,7 +5,7 @@
 #include "OpenGLs/OpenGLWidget.h"
 #include <QVBoxLayout>
 #include "OpenGLs/OpenGLTest.h"
-#include "SLAM_LYJ.h"
+//#include "SLAM_LYJ.h"
 
 NSP_QT_LYJ_BEGIN
 
@@ -137,7 +137,7 @@ int testQT()
 	// testButton();
 	// testLabel();
 	// testImage();
-	testWindow();
+	//testWindow();
 	// testOpenGL();
 
 	return 1;

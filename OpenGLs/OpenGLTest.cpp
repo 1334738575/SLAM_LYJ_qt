@@ -5,7 +5,6 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
-//#include <stb_image_write.h>
 
 const unsigned int SCR_WIDTH = 512;
 const unsigned int SCR_HEIGHT = 512;
@@ -17,14 +16,28 @@ layout (location = 0) in vec3 aPos;
 uniform mat4 projection;
 uniform mat4 view;
 void main() {
-    gl_Position = projection * view * vec4(aPos, 1.0);
+    vec4 Pc = view * vec4(aPos, 1.0);
+    Pc.x = Pc.x / Pc.z;
+    Pc.y = Pc.y / Pc.z;
+    Pc.z = Pc.z / projection[2][3];
+    gl_Position.x = (Pc.x * projection[0][0] + projection[0][2] - projection[0][3])/projection[0][3];
+    gl_Position.y = (Pc.y * projection[1][1] + projection[1][2] - projection[1][3])/projection[1][3];
+    gl_Position.z = Pc.z;
+    gl_Position.w = 1.0f;
 }
 )";
 
-// 片段着色器源码
+// 片段着色器源码,flat in uint faceID;避免插值
 const char* fragmentShaderSource = R"(
 #version 330 core
+out uvec4 FragColor;
 void main() {
+    FragColor = uvec4(
+        ((gl_PrimitiveID >> 24) & 0xFF) + 1,
+        (gl_PrimitiveID >> 16) & 0xFF,
+        (gl_PrimitiveID >> 8)  & 0xFF,
+        gl_PrimitiveID         & 0xFF
+    );
 }
 )";
 
@@ -51,20 +64,27 @@ int testGL() {
         return -1;
     }
 
+    const int indSize = 6;
+    const int vSize = indSize * 3;
+    float fx = 1;
+    float fy = 1;
+    float cx = SCR_WIDTH / 2;
+    float cy = SCR_HEIGHT / 2;
+    float maxD = 2.0f;
     // 设置顶点数据（NDC坐标）
-    float vertices[18] = {
-        -0.5f, -0.5f, 0.0f,  // 左下
-         0.5f, -0.5f, 0.0f,  // 右下
-         0.0f,  0.5f, 0.25f,   // 顶部
-         -0.5f, -0.5f, 0.0f,  // 左下
-         0.5f, -0.5f, 0.0f,  // 右下
-         0.0f,  -0.5f, 0.25f   // 顶部
+    float vertices[vSize] = {
+        -100.0f, -100.f, 1.0f,  // 左下
+         100.f, -100.f, 1.0f,  // 右下
+         0.0f,  100.f, 1.0f,   // 顶部
+         -100.0f, -100.f, 1.0f,  // 左下
+         100.f, -100.f, 1.0f,  // 右下
+         0.0f,  -200.f, 1.0f   // 顶部
     };
 
     // 索引数据（定义两个三角形）
-    unsigned int indices[6] = {
+    unsigned int indices[indSize] = {
         0, 1, 2,  // 第一个三角形
-        3, 4, 5   // 第二个三角形
+        3, 4, 5
     };
 
     // 创建VAO/VBO
@@ -101,64 +121,108 @@ int testGL() {
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
+    //创建颜色纹理（面片id）
+    GLuint colorTex;
+    glGenTextures(1, &colorTex);
+    glBindTexture(GL_TEXTURE_2D, colorTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTex, 0);
+
     // 创建深度纹理
     GLuint depthTexture;
     glGenTextures(1, &depthTexture);
     glBindTexture(GL_TEXTURE_2D, depthTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, SCR_WIDTH, SCR_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
-    glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
+
+    GLenum drawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
+    glDrawBuffers(1, drawBuffers);
+    //glReadBuffer(GL_NONE);
+
+    // 检查 FBO 是否完整
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        // FBO 不完整，处理错误
+        std::cout << "error!" << std::endl;
+    }
 
     // 主循环
     while (!glfwWindowShouldClose(window)) {
+        glDisable(GL_BLEND); //输出8UI时，必须禁用
         glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-        glClear(GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // 设置视图矩阵（摄像机在Z轴正方向）
-        float near = 0.0f, far = 1.0f;
-        float ortho[16] = {
-            1,0,0,0,
-            0,1,0,0,
-            0,0,-2 / (far - near), -(far + near) / (far - near),
+        float projectM[16] = {
+            fx,0,cx,SCR_WIDTH / 2,
+            0,fy,cy,SCR_HEIGHT / 2,
+            0,0,1,maxD,  // 摄像机位置z=1
             0,0,0,1
         };
         float view[16] = {
             1,0,0,0,
             0,1,0,0,
-            0,0,1,-1,  // 摄像机位置z=1
+            0,0,1,0,
             0,0,0,1
         };
 
         //after vertex (-0.5, -0.5, 1, 1) (0.5, -0.5, 1, 1) (0, -0.5, 0.5, 1)
         //after pro (-0.5, -0.5, 1, 1) (0.5, -0.5, 1, 1) (0, -1, 1, 1)
         glUseProgram(shaderProgram);
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, ortho);
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projectM);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, view);
 
         glBindVertexArray(VAO);
-        //glDrawArrays(GL_TRIANGLES, 0, 6);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        //glDrawArrays(GL_TRIANGLES, 0, indSize);
+        glDrawElements(GL_TRIANGLES, indSize, GL_UNSIGNED_INT, 0);
+
+        //保存颜色
+        std::vector<uchar> colors(SCR_WIDTH * SCR_HEIGHT * 4);
+        glReadPixels(0, 0, SCR_WIDTH, SCR_HEIGHT, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, colors.data());
+        std::vector<uint32_t> fids(SCR_WIDTH* SCR_HEIGHT, UINT_MAX);
+        cv::Mat mm(SCR_HEIGHT, SCR_WIDTH, CV_8UC1);
+        for (uint32_t i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
+            uint32_t id = i * 4;
+            if (((int)colors[id + 0] + (int)colors[id + 1] + (int)colors[id + 2] + (int)colors[id + 3]) == 0)
+                continue;
+            uchar r = colors[id + 0];
+            uchar g = colors[id + 1];
+            uchar b = colors[id + 2];
+            uchar a = colors[id + 3];
+            int x = i % SCR_WIDTH;
+            int y = i / SCR_WIDTH;
+            mm.at<uchar>(y, x) = a * 100 + 100;
+            uint32_t ret = ((colors[id + 0]-1) << 24) | (colors[id + 1] << 16) | (colors[id + 2] << 8) | colors[id + 3];
+            fids[i] = ret;
+        }
 
         // 保存深度图
         std::vector<float> depthData(SCR_WIDTH * SCR_HEIGHT);
         glBindTexture(GL_TEXTURE_2D, depthTexture);
         glGetTexImage(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GL_FLOAT, depthData.data());
-
         cv::Mat m(SCR_HEIGHT, SCR_WIDTH, CV_8UC1);
-        std::vector<unsigned char> imageData(SCR_WIDTH * SCR_HEIGHT);
+        cv::Mat m2(SCR_HEIGHT, SCR_WIDTH, CV_32FC1);
         for (int i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
             //if (depthData[i] != 1.0)
                 //std::cout << "111111" << std::endl;
-            imageData[i] = static_cast<unsigned char>((1.0 - depthData[i]) * 255);
             int x = i % SCR_WIDTH;
             int y = i / SCR_WIDTH;
-            m.at<uchar>(y, x) = static_cast<unsigned char>((1.0 - depthData[i]) * 255);
+            float d = (depthData[i] - 0.5f) * 2;
+            m.at<uchar>(y, x) = static_cast<unsigned char>(d * 255);
+            m2.at<float>(y, x) = d * maxD;
         }
-        //stbi_write_png("depth.png", SCR_WIDTH, SCR_HEIGHT, 1, imageData.data(), SCR_WIDTH);
+
+
+        cv::imshow("fid", mm);
         cv::imshow("111", m);
         cv::waitKey();
 
