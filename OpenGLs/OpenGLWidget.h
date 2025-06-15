@@ -9,6 +9,7 @@
 #include <QWheelEvent>
 #include <QImage>
 #include <QOpenGLTexture>
+#include <QTimer>
 #include <array>
 #include <vector>
 #include <Eigen/Core>
@@ -126,6 +127,7 @@ namespace QT_LYJ {
 		bool m_isPressRight;          // 鼠标是否按下
 		QPoint m_lastPos;          // 上一个鼠标位置
 
+	public:
 		int m_curIter = 0;
 		int m_iter = 0;
 		int m_frameSize = 0;

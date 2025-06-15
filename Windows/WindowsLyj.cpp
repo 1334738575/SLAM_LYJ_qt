@@ -8,9 +8,16 @@ namespace QT_LYJ {
 		//main window
 		resize(w_, h_);
 		setWindowTitle("SLAM_LYJ_VIEWER");
-		QWidget* centralWidget = new QWidget(this);
+		//QWidget* centralWidget = new QWidget(this);
+		centralWidget = new QWidget(this);
 		centralWidget->resize(w_, h_);
 		layout_ = new QVBoxLayout();
+
+		//add quit
+		QPushButton* qButton = new QPushButton("quit", centralWidget);
+		layout_->addWidget(qButton);
+		connect(qButton, SIGNAL(clicked()), qApp, SLOT(quit()));
+		buttons_.push_back(qButton);
 
 		//opengl show
 		openGLWidget_ = new OpenGLWidgetLyj(this);
@@ -28,7 +35,7 @@ namespace QT_LYJ {
 
 	void WindowsLyj::addBotton(const std::string _name, std::function<void()> _func)
 	{
-		QPushButton* button = new QPushButton(_name.c_str());
+		QPushButton* button = new QPushButton(_name.c_str(), centralWidget);
 		layout_->addWidget(button);
 		if (_func)
 			QObject::connect(button, &QPushButton::clicked, _func);

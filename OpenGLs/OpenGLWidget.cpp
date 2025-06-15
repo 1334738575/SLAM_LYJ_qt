@@ -216,7 +216,7 @@ namespace QT_LYJ {
 		logStr += "Iter: " + std::to_string(_iter) + "\n";
 		if (m_printFunc)
 			m_printFunc(logStr);
-		update();
+		//update();
 	}
 	void OpenGLWidgetLyj::setPrintFunc(std::function<void(const std::string&)> _printFunc)
 	{

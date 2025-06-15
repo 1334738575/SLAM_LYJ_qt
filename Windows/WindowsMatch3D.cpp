@@ -10,12 +10,19 @@ namespace QT_LYJ
 			});
 		//bottons
 		addBotton("load module", [&]() {
-			QString directoryPath = QFileDialog::getExistingDirectory(this, "Open directory", "../QT/data");
-			if (!directoryPath.isEmpty()) {
-				printLog("load module in " + directoryPath.toStdString());
-				loadModel(directoryPath);
-			}
+			openGLWidget_->makeCurrent();
+			// 释放关键资源（可选）
+			openGLWidget_->doneCurrent();
+			// 延迟触发对话框
+			QTimer::singleShot(0, this, [&]() {
+				//QString directoryPath = QFileDialog::getExistingDirectory(nullptr, "Open directory", "../QT/data");
+				//if (!directoryPath.isEmpty()) {
+				//	printLog("load module in " + directoryPath.toStdString());
+				//	loadModel(directoryPath);
+				//}
+				loadModel("../QT/data/3D");
 			});
+		});
 	}
 	WindowsMatch3D::~WindowsMatch3D()
 	{}
@@ -35,6 +42,29 @@ namespace QT_LYJ
 		//openGLWidget_->addQuad(0, 1, 2, 3);
 		//std::vector<int> polygon = { 0, 1, 2, 3, 4 };
 		//openGLWidget_->addPolygon(polygon);
+
+		int& iter = openGLWidget_->m_iter;
+		int& frameSize = openGLWidget_->m_frameSize;
+		int& enableNormal = openGLWidget_->m_enableNormal;
+		int& enableColor = openGLWidget_->m_enableColor;
+		std::vector<int>& allPsSize = openGLWidget_->m_allPsSize;
+		std::vector<std::vector<Eigen::Vector3f>>& allPoints = openGLWidget_->m_allPoints;
+		std::vector<std::vector<Eigen::Vector3f>>& allNormals = openGLWidget_->m_allNormals;
+		std::vector<std::vector<Eigen::Vector3f>>& allColors = openGLWidget_->m_allColors;
+		std::vector<std::map<int64_t, std::vector<Eigen::Vector2i>>>& allCorrs = openGLWidget_->m_allCorrs;
+		std::vector<std::vector<Eigen::Matrix3f>>& allFrameRwcs = openGLWidget_->m_allFrameRwcs;
+		std::vector<std::vector<Eigen::Vector3f>>& allFrametwcs = openGLWidget_->m_allFrametwcs;
+		//int& iter = m_iter;
+		//int& frameSize = m_frameSize;
+		//int& enableNormal = m_enableNormal;
+		//int& enableColor = m_enableColor;
+		//std::vector<int>& allPsSize = m_allPsSize;
+		//std::vector<std::vector<Eigen::Vector3f>>& allPoints = m_allPoints;
+		//std::vector<std::vector<Eigen::Vector3f>>& allNormals = m_allNormals;
+		//std::vector<std::vector<Eigen::Vector3f>>& allColors = m_allColors;
+		//std::vector<std::map<int64_t, std::vector<Eigen::Vector2i>>>& allCorrs = m_allCorrs;
+		//std::vector<std::vector<Eigen::Matrix3f>>& allFrameRwcs = m_allFrameRwcs;
+		//std::vector<std::vector<Eigen::Vector3f>>& allFrametwcs = m_allFrametwcs;
 
 		QDir dir(_path);
 		QFileInfoList pcFiles = dir.entryInfoList(QStringList() << "PCs.txt", QDir::Files);
@@ -65,57 +95,56 @@ namespace QT_LYJ
 			std::string header = "";
 			int pointSize = 0;
 			pcf >> header;
-			pcf >> header >> m_frameSize;
-			m_allPsSize.resize(m_frameSize + 1, 0);
-			m_allPoints.resize(m_frameSize);
-			m_allNormals.resize(m_frameSize);
-			m_allColors.resize(m_frameSize);
-			pcf >> header >> m_enableNormal;
-			pcf >> header >> m_enableColor;
-			pcf >> header >> m_iter;
+			pcf >> header >> frameSize;
+			allPsSize.resize(frameSize + 1, 0);
+			allPoints.resize(frameSize);
+			allNormals.resize(frameSize);
+			allColors.resize(frameSize);
+			pcf >> header >> enableNormal;
+			pcf >> header >> enableColor;
+			pcf >> header >> iter;
 			pcf >> header;
-			for (int i = 0; i < m_frameSize; ++i) {
+			for (int i = 0; i < frameSize; ++i) {
 				pcf >> pointSize;
-				m_allPsSize[i + 1] = pointSize;
-				m_allPoints[i].resize(pointSize);
-				m_allNormals[i].resize(pointSize);
-				m_allColors[i].resize(pointSize);
+				allPsSize[i + 1] = pointSize;
+				allPoints[i].resize(pointSize);
+				allNormals[i].resize(pointSize);
+				allColors[i].resize(pointSize);
 				for (int j = 0; j < pointSize; ++j) {
-					pcf >> m_allPoints[i][j](0) >> m_allPoints[i][j](1) >> m_allPoints[i][j](2);
-					if (m_enableNormal)
-						pcf >> m_allNormals[i][j](0) >> m_allNormals[i][j](1) >> m_allNormals[i][j](2);
-					if (m_enableColor)
-						pcf >> m_allColors[i][j](0) >> m_allColors[i][j](1) >> m_allColors[i][j](2);
+					pcf >> allPoints[i][j](0) >> allPoints[i][j](1) >> allPoints[i][j](2);
+					if (enableNormal)
+						pcf >> allNormals[i][j](0) >> allNormals[i][j](1) >> allNormals[i][j](2);
+					if (enableColor)
+						pcf >> allColors[i][j](0) >> allColors[i][j](1) >> allColors[i][j](2);
 				}
 			}
-			//openGLWidget_->setPoints(points.data(), points.size() / 3);
 			pcf.close();
 		}
-		for (int i = 1; i < m_allPsSize.size(); ++i)
-			m_allPsSize[i] += m_allPsSize[i - 1];
+		for (int i = 1; i < allPsSize.size(); ++i)
+			allPsSize[i] += allPsSize[i - 1];
 
-		m_allFrameRwcs.resize(m_iter);
-		m_allFrametwcs.resize(m_iter);
-		for (int i = 0; i < m_iter; ++i) {
+		allFrameRwcs.resize(iter);
+		allFrametwcs.resize(iter);
+		for (int i = 0; i < iter; ++i) {
 			std::ifstream Tf(TFilePaths[i]);
 			int frameSize = 0;
 			std::string header = "";
 			Tf >> header;
 			Tf >> header >> frameSize;
-			m_allFrameRwcs[i].resize(frameSize);
-			m_allFrametwcs[i].resize(frameSize);
+			allFrameRwcs[i].resize(frameSize);
+			allFrametwcs[i].resize(frameSize);
 			Tf >> header;
 			for (int ii = 0; ii < frameSize; ++ii) {
-				Tf >> m_allFrameRwcs[i][ii](0, 0) >> m_allFrameRwcs[i][ii](0, 1) >> m_allFrameRwcs[i][ii](0, 2)
-					>> m_allFrameRwcs[i][ii](1, 0) >> m_allFrameRwcs[i][ii](1, 1) >> m_allFrameRwcs[i][ii](1, 2)
-					>> m_allFrameRwcs[i][ii](2, 0) >> m_allFrameRwcs[i][ii](2, 1) >> m_allFrameRwcs[i][ii](2, 2);
-				Tf >> m_allFrametwcs[i][ii](0) >> m_allFrametwcs[i][ii](1) >> m_allFrametwcs[i][ii](2);
+				Tf >> allFrameRwcs[i][ii](0, 0) >> allFrameRwcs[i][ii](0, 1) >> allFrameRwcs[i][ii](0, 2)
+					>> allFrameRwcs[i][ii](1, 0) >> allFrameRwcs[i][ii](1, 1) >> allFrameRwcs[i][ii](1, 2)
+					>> allFrameRwcs[i][ii](2, 0) >> allFrameRwcs[i][ii](2, 1) >> allFrameRwcs[i][ii](2, 2);
+				Tf >> allFrametwcs[i][ii](0) >> allFrametwcs[i][ii](1) >> allFrametwcs[i][ii](2);
 			}
 			Tf.close();
 		}
 
-		m_allCorrs.resize(m_iter);
-		for (int i = 0; i < m_iter; ++i)
+		allCorrs.resize(iter);
+		for (int i = 0; i < iter; ++i)
 		{
 			std::ifstream mf(mFilePaths[i]);
 			std::string header = "";
@@ -127,17 +156,16 @@ namespace QT_LYJ
 			for (int ii = 0; ii < framePair; ++ii) {
 				mf >> frameId1 >> frameId2 >> matchSize;
 				id64 = imagePair2Int64(frameId1, frameId2);
-				m_allCorrs[i][id64].resize(matchSize);
+				allCorrs[i][id64].resize(matchSize);
 				for (int j = 0; j < matchSize; ++j)
-					mf >> m_allCorrs[i][id64][j](0) >> m_allCorrs[i][id64][j](1);
+					mf >> allCorrs[i][id64][j](0) >> allCorrs[i][id64][j](1);
 			}
-			//openGLWidget_->setLines(lines.data(), lines.size() / 2);
 			mf.close();
 		}
 
-		openGLWidget_->setMatchData(m_iter, m_frameSize, m_enableNormal, m_enableColor,
-			&m_allPsSize, &m_allPoints, &m_allNormals, &m_allColors,
-			&m_allCorrs, &m_allFrameRwcs, &m_allFrametwcs);
+		//openGLWidget_->setMatchData(m_iter, m_frameSize, m_enableNormal, m_enableColor,
+		//	&m_allPsSize, &m_allPoints, &m_allNormals, &m_allColors,
+		//	&m_allCorrs, &m_allFrameRwcs, &m_allFrametwcs);
 
 		return;
 	}

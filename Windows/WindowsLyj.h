@@ -9,6 +9,8 @@
 #include <QPixmap>
 #include <QDir>
 #include <QFileInfoList>
+#include <QApplication>
+#include <QWidget>
 #include <fstream>
 #include "OpenGLs/OpenGLWidget.h"
 
@@ -122,6 +124,7 @@ namespace QT_LYJ {
 		QVBoxLayout* layout_ = nullptr;
 		int w_ = 1200;
 		int h_ = 1000;
+		QWidget* centralWidget = nullptr;
 	};
 
 }
