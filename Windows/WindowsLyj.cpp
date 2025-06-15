@@ -1,6 +1,4 @@
 #include "WindowsLyj.h"
-#include <QLabel>
-#include "OpenGLs/OpenGLWidget.h"
 
 namespace QT_LYJ {
 
@@ -18,23 +16,8 @@ namespace QT_LYJ {
 		openGLWidget_ = new OpenGLWidgetLyj(this);
 		layout_->addWidget(openGLWidget_);
 
-		//bottons
-		addBotton("load module", [&]() {
-			QString path = QFileDialog::getOpenFileName(this, tr("Load Module"), ".");
-			if (!path.isEmpty()) {
-				printLog("load module: " + path.toStdString());
-				loadModel("");
-			}
-			});
-		addBotton("open image", [&]() {
-			QString path = QFileDialog::getOpenFileName(this, tr("Open Image"), ".", tr("Image Files(*.png *.jpg *.bmp)"));
-			if (!path.isEmpty()) {
-				changeImage(path.toStdString());
-			}
-			});
-
 		//labels
-		addLabel("Hello, Qt!", "D:/testLyj/build/Release/down.png");
+		//addLabel("Hello, Qt!", "D:/testLyj/build/Release/down.png");
 		addLabel("log");
 
 		//layout
@@ -51,28 +34,41 @@ namespace QT_LYJ {
 			QObject::connect(button, &QPushButton::clicked, _func);
 		buttons_.push_back(button);
 	}
-
-	void WindowsLyj::addLabel(const std::string _name, const std::string _path)
+	void WindowsLyj::addLabel(const std::string _name)
 	{
+		//	QLabel* label = new QLabel(_name.c_str());
+		//	if (_path != "") {
+		//		QPixmap pixmap(_path.c_str());
+		//		label->setPixmap(pixmap);
+		//		label->resize(pixmap.size());
+		//	}
+		//	layout_->addWidget(label);
+		//	labels_.push_back(label);
 		QLabel* label = new QLabel(_name.c_str());
-		if (_path != "") {
-			QPixmap pixmap(_path.c_str());
-			label->setPixmap(pixmap);
-			label->resize(pixmap.size());
-		}
+		label->setText(_name.c_str());
 		layout_->addWidget(label);
 		labels_.push_back(label);
 	}
 
 	void WindowsLyj::changeImage(const std::string _path)
 	{
-		if (_path != "" || labels_[0]) {
-			QPixmap pixmap(_path.c_str());
-			labels_[0]->setPixmap(pixmap);
-			labels_[0]->resize(pixmap.size());
+		//if (_path != "" || labels_[0]) {
+		//	QPixmap pixmap(_path.c_str());
+		//	labels_[0]->setPixmap(pixmap);
+		//	labels_[0]->resize(pixmap.size());
+		//}
+		QString path = QString::fromStdString(_path);
+		QImage img(path);
+		if (img.isNull()) {
+			printLog("Failed to load image: " + _path);
+			return;
 		}
+		// 转换为 RGBA8888 格式
+		if (img.format() != QImage::Format_RGBA8888) {
+			img = img.convertToFormat(QImage::Format_RGBA8888);
+		}
+		openGLWidget_->setTexture(img);
 	}
-
 	void WindowsLyj::changeImage(QPixmap& _pixmap)
 	{
 		if (labels_[0]) {
@@ -83,26 +79,10 @@ namespace QT_LYJ {
 
 	void WindowsLyj::printLog(const std::string _log)
 	{
-		if (labels_[1]) {
-			labels_[1]->setText(_log.c_str());
+		if (labels_[0]) {
+			labels_[0]->setText(_log.c_str());
+			labels_[0]->update();
 		}
-	}
-
-	void WindowsLyj::loadModel(const std::string _path)
-	{
-		// 初始化一些三维点
-		std::vector<QVector3D> points;
-		points.push_back(QVector3D(0.0f, 0.0f, 0.0f));
-		points.push_back(QVector3D(0.5f, 0.0f, 0.1f));
-		points.push_back(QVector3D(0.0f, 1.0f, 0.0f));
-		points.push_back(QVector3D(0.0f, 0.0f, 1.0f));
-		points.push_back(QVector3D(1.0f, 1.0f, 1.0f));
-		openGLWidget_->setPoints(points);
-		openGLWidget_->addLine(0, 1);
-		openGLWidget_->addTriangle(0, 1, 2);
-		openGLWidget_->addQuad(0, 1, 2, 3);
-		std::vector<int> polygon = { 0, 1, 2, 3, 4 };
-		openGLWidget_->addPolygon(polygon);
 	}
 
 	WindowsLyj::~WindowsLyj()

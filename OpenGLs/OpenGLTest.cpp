@@ -233,9 +233,11 @@ int testGL() {
     // 清理资源
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
     glDeleteProgram(shaderProgram);
     glDeleteFramebuffers(1, &fbo);
     glDeleteTextures(1, &depthTexture);
+    glDeleteTextures(1, &colorTex);
 
     glfwTerminate();
     return 0;

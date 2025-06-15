@@ -1,11 +1,14 @@
-#include "QT_LYJ.h"
 #include <QApplication>
 #include <QPushButton>
-#include "Windows/WindowSLyj.h"
-#include "OpenGLs/OpenGLWidget.h"
 #include <QVBoxLayout>
-#include "OpenGLs/OpenGLTest.h"
+#include <OpenGLs/OpenGLWidget.h>
+
+#include "QT_LYJ.h"
 //#include "SLAM_LYJ.h"
+#include "OpenGLs/OpenGLTest.h"
+#include "Windows/WindowsLyj.h"
+#include "Windows/WindowsMatch3D.h"
+#include "Windows/WindowsMatch.h"
 
 NSP_QT_LYJ_BEGIN
 
@@ -44,12 +47,12 @@ static int testImage()
 	return app.exec();
 }
 
-static int testWindow()
+static int testWindow(int argc, char* argv[])
 {
-	int argc = 0;
-	char **argv = nullptr;
 	QApplication app(argc, argv);
-	WindowsLyj window;
+	//WindowsLyj window;
+	//WindowsMatch3D window;
+	WindowsMatch window;
 	window.show();
 	return app.exec();
 }
@@ -120,8 +123,8 @@ static int testOpenGL()
 		QObject::connect(button, &QPushButton::clicked, [&]()
 						 {
 							 OpenGLWindow *w = new OpenGLWindow();
-							 // w->exec(); //ģ̬�Ի�������
-							 w->show(); // ��ģ̬�Ի���
+							 // w->exec();
+							 w->show();
 						 });
 		window.setLayout(layout);
 		window.resize(800, 600);
@@ -132,13 +135,13 @@ static int testOpenGL()
 	return app.exec();
 }
 
-int testQT()
+int testQT(int argc, char* argv[])
 {
 	// testButton();
 	// testLabel();
 	// testImage();
-	//testWindow();
-	// testOpenGL();
+	 testWindow(argc, argv);
+	 //testOpenGL();
 
 	return 1;
 }

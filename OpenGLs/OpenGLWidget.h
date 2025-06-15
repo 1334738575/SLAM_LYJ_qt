@@ -35,6 +35,7 @@ namespace QT_LYJ {
 		void setTriangles(const int* triangles, const int size);
 		void setQuads(const int* quads, const int size);
 		void setPolygons(const std::vector<std::vector<int>>& polygons);
+		void setTexture(QImage& _img);
 
 	protected:
 		void initializeGL() override;
@@ -89,6 +90,7 @@ namespace QT_LYJ {
 		std::vector<TriangleInds> m_triangles;
 		std::vector<QuadInds> m_quads;
 		std::vector<std::vector<int>> m_polygons;
+		QOpenGLTexture* m_texture = nullptr; //纹理
 		float m_xRot = 0;              // 旋转角度
 		float m_yRot = 0;              // 旋转角度
 		float m_scale = 0;             // 缩放比例

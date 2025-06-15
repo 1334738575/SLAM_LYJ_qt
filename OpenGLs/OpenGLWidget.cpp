@@ -106,11 +106,20 @@ namespace QT_LYJ {
 		update();
 	}
 
+	void OpenGLWidgetLyj::setTexture(QImage& _img)
+	{
+		m_texture = new QOpenGLTexture(_img.mirrored()); // 创建纹理
+		// 设置纹理过滤
+		m_texture->setMinificationFilter(QOpenGLTexture::Linear);
+		m_texture->setMagnificationFilter(QOpenGLTexture::Linear);
+	}
+
 	void OpenGLWidgetLyj::initializeGL()
 	{
 		initializeOpenGLFunctions();
 		glEnable(GL_DEPTH_TEST); // 启用深度测试
-		//glEnable(GL_TEXTURE_2D);  // 启用纹理
+		glEnable(GL_TEXTURE_2D);  // 启用纹理
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // 设置纹理环境
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // 设置清除颜色为黑色
 	}
 
@@ -126,6 +135,15 @@ namespace QT_LYJ {
 	void OpenGLWidgetLyj::paintGL()
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // 清除颜色和深度缓冲
+		if (m_texture) {
+			m_texture->bind();
+			glBegin(GL_QUADS);
+			glTexCoord2f(0.0f, 0.0f); glVertex2f(-0.5f, -0.5f);
+			glTexCoord2f(1.0f, 0.0f); glVertex2f(0.5f, -0.5f);
+			glTexCoord2f(1.0f, 1.0f); glVertex2f(0.5f, 0.5f);
+			glTexCoord2f(0.0f, 1.0f); glVertex2f(-0.5f, 0.5f);
+			glEnd();
+		}
 
 		glLoadIdentity();
 
@@ -142,8 +160,8 @@ namespace QT_LYJ {
 
 		//draw points
 		if (m_enablePoint) {
-			glBegin(GL_POINTS);                                 // 开始绘制点
 			glPointSize(10.0f);                                   // 设置点的大小
+			glBegin(GL_POINTS);                                 // 开始绘制点
 			glColor3f(1.0f, 0.0f, 0.0f);                        // 设置颜色为红色
 			for (const QVector3D& point : m_points)
 			{
@@ -154,6 +172,7 @@ namespace QT_LYJ {
 
 		//draw lines
 		if (m_enableLine) {
+			glLineWidth(5.0f);
 			glBegin(GL_LINES);                                   // 开始绘制线
 			glColor3f(0.0f, 1.0f, 0.0f);                        // 设置颜色为绿色
 			for (const auto& line : m_lines)
@@ -249,8 +268,8 @@ namespace QT_LYJ {
 		}
 		else if (m_isPressRight)
 		{
-			float dx = (event->x() - m_lastPos.x()) / 200.f;
-			float dy = (event->y() - m_lastPos.y()) / 200.f;
+			float dx = (event->x() - m_lastPos.x()) / 50.f;
+			float dy = (event->y() - m_lastPos.y()) / 50.f;
 			m_detY -= dy;
 			m_detX += dx;
 			m_lastPos = event->pos();
@@ -283,6 +302,9 @@ namespace QT_LYJ {
 		case Qt::Key_Right:
 			m_detX += 0.1f;
 			break;
+		case Qt::Key_P:
+			m_enablePoint = !m_enablePoint;
+			break;
 		case Qt::Key_L:
 			m_enableLine = !m_enableLine;
 			break;
@@ -292,7 +314,7 @@ namespace QT_LYJ {
 		case Qt::Key_Q:
 			m_enableQuad = !m_enableQuad;
 			break;
-		case Qt::Key_P:
+		case Qt::Key_G:
 			m_enablePolygon = !m_enablePolygon;
 			break;
 		default:
