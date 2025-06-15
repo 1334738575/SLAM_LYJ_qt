@@ -5,6 +5,9 @@ namespace QT_LYJ
 	WindowsMatch3D::WindowsMatch3D(QWidget* parent)
 		:WindowsLyj(parent)
 	{
+		openGLWidget_->setPrintFunc([&](const std::string& _info) {
+			printLog(_info);
+			});
 		//bottons
 		addBotton("load module", [&]() {
 			QString directoryPath = QFileDialog::getExistingDirectory(this, "Open directory", "../QT/data");
@@ -35,8 +38,9 @@ namespace QT_LYJ
 
 		QDir dir(_path);
 		QFileInfoList pcFiles = dir.entryInfoList(QStringList() << "PCs.txt", QDir::Files);
-		QFileInfoList mFiles = dir.entryInfoList(QStringList() << "Matches.txt", QDir::Files);
-		if (pcFiles.isEmpty() || mFiles.isEmpty()) {
+		QFileInfoList mFiles = dir.entryInfoList(QStringList() << "Matches*.txt", QDir::Files);
+		QFileInfoList TFiles = dir.entryInfoList(QStringList() << "Twcs*.txt", QDir::Files);
+		if (pcFiles.isEmpty() || mFiles.isEmpty() || TFiles.isEmpty()) {
 			printLog("No PCs.txt or Matches.txt found in the directory.");
 			return;
 		}
@@ -44,72 +48,97 @@ namespace QT_LYJ
 		std::string logStr = "Loading model from: \n";
 		std::string pcFilePath = pcFiles[0].absoluteFilePath().toStdString();
 		logStr += pcFilePath + "\n";
-		std::string mFilePath = mFiles[0].absoluteFilePath().toStdString();
-		logStr += mFilePath + "\n";
+		std::vector<std::string> mFilePaths(mFiles.size());
+		for (int i = 0; i < mFiles.size(); ++i) {
+			mFilePaths[i] = mFiles[i].absoluteFilePath().toStdString();
+			logStr += mFilePaths[i] + "\n";
+		}
+		std::vector<std::string> TFilePaths(TFiles.size());
+		for (int i = 0; i < TFiles.size(); ++i) {
+			TFilePaths[i] = TFiles[i].absoluteFilePath().toStdString();
+			logStr += TFilePaths[i] + "\n";
+		}
 		printLog(logStr);
 
-		std::vector<int> psSize;
 		{
 			std::ifstream pcf(pcFilePath);
-			std::vector<float> points;
 			std::string header = "";
-			int frameSize = 0, flagNormal = 0, flagColor = 0, dataDim = 3, pointSize = 0;
-			float x, y, z, nx, ny, nz, r, g, b;
+			int pointSize = 0;
 			pcf >> header;
-			pcf >> header >> frameSize;
-			psSize.resize(frameSize + 1, 0);
-			pcf >> header >> flagNormal;
-			if (flagNormal)
-				dataDim += 3;
-			pcf >> header >> flagColor;
-			if (flagColor)
-				dataDim += 3;
+			pcf >> header >> m_frameSize;
+			m_allPsSize.resize(m_frameSize + 1, 0);
+			m_allPoints.resize(m_frameSize);
+			m_allNormals.resize(m_frameSize);
+			m_allColors.resize(m_frameSize);
+			pcf >> header >> m_enableNormal;
+			pcf >> header >> m_enableColor;
+			pcf >> header >> m_iter;
 			pcf >> header;
-			for (int i = 0; i < frameSize; ++i) {
+			for (int i = 0; i < m_frameSize; ++i) {
 				pcf >> pointSize;
-				psSize[i + 1] = pointSize;
+				m_allPsSize[i + 1] = pointSize;
+				m_allPoints[i].resize(pointSize);
+				m_allNormals[i].resize(pointSize);
+				m_allColors[i].resize(pointSize);
 				for (int j = 0; j < pointSize; ++j) {
-					pcf >> x >> y >> z;
-					points.push_back(x);
-					points.push_back(y);
-					points.push_back(z);
-					if (flagNormal) {
-						pcf >> nx >> ny >> nz;
-						//points.push_back(nx);
-						//points.push_back(ny);
-						//points.push_back(nz);
-					}
-					if (flagColor) {
-						pcf >> r >> g >> b;
-						//points.push_back(r);
-						//points.push_back(g);
-						//points.push_back(b);
-					}
+					pcf >> m_allPoints[i][j](0) >> m_allPoints[i][j](1) >> m_allPoints[i][j](2);
+					if (m_enableNormal)
+						pcf >> m_allNormals[i][j](0) >> m_allNormals[i][j](1) >> m_allNormals[i][j](2);
+					if (m_enableColor)
+						pcf >> m_allColors[i][j](0) >> m_allColors[i][j](1) >> m_allColors[i][j](2);
 				}
 			}
-			openGLWidget_->setPoints(points.data(), points.size() / 3);
+			//openGLWidget_->setPoints(points.data(), points.size() / 3);
 			pcf.close();
 		}
-		for (int i = 1; i < psSize.size(); ++i)
-			psSize[i] += psSize[i - 1];
-		{
-			std::ifstream mf(mFilePath);
-			std::vector<int> lines;
+		for (int i = 1; i < m_allPsSize.size(); ++i)
+			m_allPsSize[i] += m_allPsSize[i - 1];
+
+		m_allFrameRwcs.resize(m_iter);
+		m_allFrametwcs.resize(m_iter);
+		for (int i = 0; i < m_iter; ++i) {
+			std::ifstream Tf(TFilePaths[i]);
+			int frameSize = 0;
 			std::string header = "";
-			int framePair = 0, frameId1, frameId2, matchSize = 0, mId1, mId2;
+			Tf >> header;
+			Tf >> header >> frameSize;
+			m_allFrameRwcs[i].resize(frameSize);
+			m_allFrametwcs[i].resize(frameSize);
+			Tf >> header;
+			for (int ii = 0; ii < frameSize; ++ii) {
+				Tf >> m_allFrameRwcs[i][ii](0, 0) >> m_allFrameRwcs[i][ii](0, 1) >> m_allFrameRwcs[i][ii](0, 2)
+					>> m_allFrameRwcs[i][ii](1, 0) >> m_allFrameRwcs[i][ii](1, 1) >> m_allFrameRwcs[i][ii](1, 2)
+					>> m_allFrameRwcs[i][ii](2, 0) >> m_allFrameRwcs[i][ii](2, 1) >> m_allFrameRwcs[i][ii](2, 2);
+				Tf >> m_allFrametwcs[i][ii](0) >> m_allFrametwcs[i][ii](1) >> m_allFrametwcs[i][ii](2);
+			}
+			Tf.close();
+		}
+
+		m_allCorrs.resize(m_iter);
+		for (int i = 0; i < m_iter; ++i)
+		{
+			std::ifstream mf(mFilePaths[i]);
+			std::string header = "";
+			int64_t id64 = 0;
+			int framePair = 0, frameId1, frameId2, matchSize = 0;
 			mf >> header;
 			mf >> header >> framePair;
 			mf >> header;
-			for (int i = 0; i < framePair; ++i) {
+			for (int ii = 0; ii < framePair; ++ii) {
 				mf >> frameId1 >> frameId2 >> matchSize;
-				for (int j = 0; j < matchSize; ++j) {
-					mf >> mId1 >> mId2;
-					lines.push_back(mId1 + psSize[frameId1]);
-					lines.push_back(mId2 + psSize[frameId2]);
-				}
+				id64 = imagePair2Int64(frameId1, frameId2);
+				m_allCorrs[i][id64].resize(matchSize);
+				for (int j = 0; j < matchSize; ++j)
+					mf >> m_allCorrs[i][id64][j](0) >> m_allCorrs[i][id64][j](1);
 			}
-			openGLWidget_->setLines(lines.data(), lines.size() / 2);
+			//openGLWidget_->setLines(lines.data(), lines.size() / 2);
 			mf.close();
 		}
+
+		openGLWidget_->setMatchData(m_iter, m_frameSize, m_enableNormal, m_enableColor,
+			&m_allPsSize, &m_allPoints, &m_allNormals, &m_allColors,
+			&m_allCorrs, &m_allFrameRwcs, &m_allFrametwcs);
+
+		return;
 	}
 }

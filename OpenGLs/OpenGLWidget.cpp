@@ -6,6 +6,38 @@
 
 namespace QT_LYJ {
 
+	int64_t imagePair2Int64(int _i1, int _i2)
+	{
+		if (_i1 <= _i2)
+			return (static_cast<int64_t>(_i1) << 32) | static_cast<int64_t>(_i2);
+		else
+			return (static_cast<int64_t>(_i2) << 32) | static_cast<int64_t>(_i1);
+	}
+	std::pair<int, int> int642TwoImagePair(int64_t _pair)
+	{
+		int i1 = static_cast<int>(_pair >> 32);
+		int i2 = static_cast<int>(_pair & 0xFFFFFFFF);
+		return { i1, i2 };
+	}
+	void transform(const float* _Rwc, const float* _twc,
+		const float& _xc, const float& _yc, const float& _zc,
+		float& _xw, float& _yw, float& _zw
+	)
+	{
+		_xw = _Rwc[0] * _xc + _Rwc[3] * _yc + _Rwc[6] * _zc + _twc[0];
+		_yw = _Rwc[1] * _xc + _Rwc[4] * _yc + _Rwc[7] * _zc + _twc[1];
+		_zw = _Rwc[2] * _xc + _Rwc[5] * _yc + _Rwc[8] * _zc + _twc[2];
+	}
+	void transformNormal(const float* _Rwc,
+		const float& _nxc, const float& _nyc, const float& _nzc,
+		float& _nxw, float& _nyw, float& _nzw
+	)
+	{
+		_nxw = _Rwc[0] * _nxc + _Rwc[3] * _nyc + _Rwc[6] * _nzc;
+		_nyw = _Rwc[1] * _nxc + _Rwc[4] * _nyc + _Rwc[7] * _nzc;
+		_nzw = _Rwc[2] * _nxc + _Rwc[5] * _nyc + _Rwc[8] * _nzc;
+	}
+
 	OpenGLWidgetLyj::OpenGLWidgetLyj(QWidget* parent)
 		: QOpenGLWidget(parent),
 		m_xRot(0), m_yRot(0), m_detX(0), m_detY(0), m_detZ(0),
@@ -13,47 +45,39 @@ namespace QT_LYJ {
 	{
 		setFocusPolicy(Qt::StrongFocus); // 设置焦点策略，可以接收键盘事件
 	}
-
 	OpenGLWidgetLyj::~OpenGLWidgetLyj()
-	{
-	}
+	{}
 
 	void OpenGLWidgetLyj::addPoint(const float x, const float y, const float z)
 	{
 		m_points.push_back(QVector3D(x, y, z));
 		update();
 	}
-
 	void OpenGLWidgetLyj::addPoint(const QVector3D& p)
 	{
 		m_points.push_back(p);
 		update();
 	}
-
 	void OpenGLWidgetLyj::addLine(const int p1, const int p2)
 	{
 		m_lines.emplace_back(p1, p2);
 		update();
 	}
-
 	void OpenGLWidgetLyj::addTriangle(const int p1, const int p2, const int p3)
 	{
 		m_triangles.emplace_back(p1, p2, p3);
 		update();
 	}
-
 	void OpenGLWidgetLyj::addQuad(const int p1, const int p2, const int p3, const int p4)
 	{
 		m_quads.emplace_back(p1, p2, p3, p4);
 		update();
 	}
-
 	void OpenGLWidgetLyj::addPolygon(const std::vector<int>& points)
 	{
 		m_polygons.push_back(points);
 		update();
 	}
-
 	void OpenGLWidgetLyj::setPoints(const float* points, const int size)
 	{
 		m_points.resize(size);
@@ -63,13 +87,11 @@ namespace QT_LYJ {
 		}
 		update();
 	}
-
 	void OpenGLWidgetLyj::setPoints(const std::vector<QVector3D>& ps)
 	{
 		m_points = ps;
 		update();
 	}
-
 	void OpenGLWidgetLyj::setLines(const int* lines, const int size)
 	{
 		m_lines.resize(size);
@@ -79,7 +101,6 @@ namespace QT_LYJ {
 		}
 		update();
 	}
-
 	void OpenGLWidgetLyj::setTriangles(const int* triangles, const int size)
 	{
 		m_triangles.resize(size);
@@ -89,7 +110,6 @@ namespace QT_LYJ {
 		}
 		update();
 	}
-
 	void OpenGLWidgetLyj::setQuads(const int* quads, const int size)
 	{
 		m_quads.resize(size);
@@ -99,19 +119,108 @@ namespace QT_LYJ {
 		}
 		update();
 	}
-
 	void OpenGLWidgetLyj::setPolygons(const std::vector<std::vector<int>>& polygons)
 	{
 		m_polygons = polygons;
 		update();
 	}
-
 	void OpenGLWidgetLyj::setTexture(QImage& _img)
 	{
 		m_texture = new QOpenGLTexture(_img.mirrored()); // 创建纹理
 		// 设置纹理过滤
 		m_texture->setMinificationFilter(QOpenGLTexture::Linear);
 		m_texture->setMagnificationFilter(QOpenGLTexture::Linear);
+	}
+
+	void OpenGLWidgetLyj::setMatchData(int _iter, int _frameSize, int _enableNormal, int _enableColor, std::vector<int>* _allPsSize, std::vector<std::vector<Eigen::Vector3f>>* _allPoints, std::vector<std::vector<Eigen::Vector3f>>* _allNormals, std::vector<std::vector<Eigen::Vector3f>>* _allColors, std::vector<std::map<int64_t, std::vector<Eigen::Vector2i>>>* _allCorrs, std::vector<std::vector<Eigen::Matrix3f>>* _allFrameRwcs, std::vector<std::vector<Eigen::Vector3f>>* _allFrametwcs)
+	{
+		m_curIter = 0;
+		m_iter = _iter;
+		m_frameSize = _frameSize;
+		m_enableNormal = _enableNormal;
+		m_enableColor = _enableColor;
+		//m_allPsSize = _allPsSize;
+		//m_allPoints = _allPoints;
+		//m_allNormals = _allNormals;
+		//m_allColors = _allColors;
+		//m_allCorrs = _allCorrs;
+		//m_allFrameRwcs = _allFrameRwcs;
+		//m_allFrametwcs = _allFrametwcs;
+		m_allPsSize = *_allPsSize;
+		m_allPoints = *_allPoints;
+		m_allNormals = *_allNormals;
+		m_allColors = *_allColors;
+		m_allCorrs = *_allCorrs;
+		m_allFrameRwcs = *_allFrameRwcs;
+		m_allFrametwcs = *_allFrametwcs;
+	}
+	void OpenGLWidgetLyj::changeIter(int _iter)
+	{
+		if (_iter < 0 || _iter >= m_iter)
+			return;
+		m_points.clear();
+		m_lines.clear();
+		m_triangles.clear();
+		m_quads.clear();
+		m_polygons.clear();
+
+		//m_allPsSize m_allPoints
+		const auto& fSize = m_frameSize;
+		//const auto& allPsSize = *m_allPsSize;
+		//const auto& allPoints = *m_allPoints;
+		//const auto& corrs = m_allCorrs->at(_iter);
+		//const auto& Rwcs = m_allFrameRwcs->at(_iter);
+		//const auto& twcs = m_allFrametwcs->at(_iter);
+		const auto& allPsSize = m_allPsSize;
+		const auto& allPoints = m_allPoints;
+		const auto& corrs = m_allCorrs.at(_iter);
+		const auto& Rwcs = m_allFrameRwcs.at(_iter);
+		const auto& twcs = m_allFrametwcs.at(_iter);
+		m_points.resize(allPsSize[fSize]);
+		float xw, yw, zw;
+		for (int i = 0; i < fSize; ++i) {
+			int psSize = allPsSize[i + 1] - allPsSize[i];
+			for (int j = 0; j < psSize; ++j) {
+				const auto& p = allPoints[i][j];
+				transform(Rwcs[i].data(), twcs[i].data(), p.x(), p.y(), p.z(), xw, yw, zw);
+				m_points[allPsSize[i] + j] = QVector3D(xw, yw, zw);
+			}
+		}
+		std::vector<int> corrsSize(corrs.size() + 1, 0);
+		int cnt = 1;
+		for (const auto& crs : corrs) {
+			corrsSize[cnt+1] = crs.second.size() + corrsSize[cnt];
+			++cnt;
+		}
+		m_lines.resize(corrsSize[fSize]);
+		cnt = 0;
+		int cnt2 = 0;
+		std::pair<int, int> fIds;
+		for (const auto& crs : corrs) {
+			const auto& ind = crs.first;
+			fIds = int642TwoImagePair(ind);
+			const auto& fId1 = fIds.first;
+			const auto& fId2 = fIds.second;
+			const auto& ms = crs.second;
+			cnt2 = 0;
+			for (const auto& m : ms) {
+				m_lines[corrsSize[cnt] + cnt2] = LineInds(
+					allPsSize[fId1] + m.x(),
+					allPsSize[fId2] + m.y()
+				);
+				++cnt2;
+			}
+			++cnt;
+		}
+		std::string logStr = "";
+		logStr += "Iter: " + std::to_string(_iter) + "\n";
+		if (m_printFunc)
+			m_printFunc(logStr);
+		update();
+	}
+	void OpenGLWidgetLyj::setPrintFunc(std::function<void(const std::string&)> _printFunc)
+	{
+		m_printFunc = _printFunc;
 	}
 
 	void OpenGLWidgetLyj::initializeGL()
@@ -235,7 +344,6 @@ namespace QT_LYJ {
 		}
 
 	}
-
 	void OpenGLWidgetLyj::mousePressEvent(QMouseEvent* event)
 	{
 		if (event->button() == Qt::LeftButton)
@@ -254,7 +362,6 @@ namespace QT_LYJ {
 			m_isPressRight = false;
 		}
 	}
-
 	void OpenGLWidgetLyj::mouseMoveEvent(QMouseEvent* event)
 	{
 		if (m_isPressLeft)
@@ -276,7 +383,6 @@ namespace QT_LYJ {
 			update();
 		}
 	}
-
 	void OpenGLWidgetLyj::mouseReleaseEvent(QMouseEvent* event)
 	{
 		if (event->button() == Qt::LeftButton)
@@ -317,18 +423,30 @@ namespace QT_LYJ {
 		case Qt::Key_G:
 			m_enablePolygon = !m_enablePolygon;
 			break;
+
+		case Qt::Key_A: {
+			--m_curIter;
+			m_curIter = m_curIter < 0 ? 0 : m_curIter;
+			changeIter(m_curIter);
+			break;
+		}
+		case Qt::Key_S: {
+			++m_curIter;
+			m_curIter = m_curIter >= m_iter ? m_iter - 1 : m_curIter;
+			changeIter(m_curIter);
+			break;
+		}
+
 		default:
 			break;
 		}
 		QOpenGLWidget::keyPressEvent(event);
 		update();
 	}
-
 	void OpenGLWidgetLyj::keyReleaseEvent(QKeyEvent* event)
 	{
 		QOpenGLWidget::keyReleaseEvent(event);
 	}
-
 	void OpenGLWidgetLyj::wheelEvent(QWheelEvent* event)
 	{
 		// 获取滚轮的移动量

@@ -39,7 +39,7 @@ namespace QT_LYJ
 			uint64_t pairId = 0;
 			for (int i = 0; i < framePair; ++i) {
 				mf >> frameId1 >> frameId2 >> matchSize;
-				pairId = imagePair2Uint64(frameId1, frameId2);
+				pairId = imagePair2Int64(frameId1, frameId2);
 				m_allPointMatches[pairId].resize(matchSize);
 				m_allKPImgPairs[frameId1].emplace_back(frameId2, pairId);
 				for (int j = 0; j < matchSize; ++j) {
@@ -78,7 +78,7 @@ namespace QT_LYJ
 			uint64_t pairId = 0;
 			for (int i = 0; i < framePair; ++i) {
 				mf >> frameId1 >> frameId2 >> matchSize;
-				pairId = imagePair2Uint64(frameId1, frameId2);
+				pairId = imagePair2Int64(frameId1, frameId2);
 				m_allLineMatches[pairId].resize(matchSize);
 				m_allKLImgPairs[frameId1].emplace_back(frameId2, pairId);
 				for (int j = 0; j < matchSize; ++j) {
@@ -160,6 +160,8 @@ namespace QT_LYJ
 					m_status = SPOINT;
 				else if (m_status == SLINEMATCH)
 					m_status = SLINE;
+				else
+					m_status = SDEFAULT;
 			}
 			else if (key == 'd') {
 				if (m_status == SDEFAULT)

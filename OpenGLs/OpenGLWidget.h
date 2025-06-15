@@ -11,8 +11,19 @@
 #include <QOpenGLTexture>
 #include <array>
 #include <vector>
+#include <Eigen/Core>
+#include <Eigen/Eigen>
 
 namespace QT_LYJ {
+
+	int64_t imagePair2Int64(int _i1, int _i2);
+	std::pair<int, int> int642TwoImagePair(int64_t _pair);
+	void transform(const float* _Rwc, const float* _twc,
+		const float& _xc, const float& _yc, const float& _zc,
+		float& _xw, float& _yw, float& _zw);
+	void transformNormal(const float* _Rwc,
+		const float& _nxc, const float& _nyc, const float& _nzc,
+		float& _nxw, float& _nyw, float& _nzw);
 
 	class OpenGLWidgetLyj : public QOpenGLWidget, protected QOpenGLFunctions
 	{
@@ -36,6 +47,20 @@ namespace QT_LYJ {
 		void setQuads(const int* quads, const int size);
 		void setPolygons(const std::vector<std::vector<int>>& polygons);
 		void setTexture(QImage& _img);
+
+		void setMatchData(int _iter,
+			int _frameSize,
+			int _enableNormal,
+			int _enableColor,
+			std::vector<int>* _allPsSize,
+			std::vector<std::vector<Eigen::Vector3f>>* _allPoints,
+			std::vector<std::vector<Eigen::Vector3f>>* _allNormals,
+			std::vector<std::vector<Eigen::Vector3f>>* _allColors,
+			std::vector<std::map<int64_t, std::vector<Eigen::Vector2i>>>* _allCorrs,
+			std::vector<std::vector<Eigen::Matrix3f>>* _allFrameRwcs,
+			std::vector<std::vector<Eigen::Vector3f>>* _allFrametwcs);
+		void changeIter(int _iter);
+		void setPrintFunc(std::function<void(const std::string&)> _printFunc);
 
 	protected:
 		void initializeGL() override;
@@ -100,6 +125,27 @@ namespace QT_LYJ {
 		bool m_isPressLeft;          // 鼠标是否按下
 		bool m_isPressRight;          // 鼠标是否按下
 		QPoint m_lastPos;          // 上一个鼠标位置
+
+		int m_curIter = 0;
+		int m_iter = 0;
+		int m_frameSize = 0;
+		int m_enableNormal = 0;
+		int m_enableColor = 0;
+		//std::vector<int>* m_allPsSize = nullptr;
+		//std::vector<std::vector<Eigen::Vector3f>>* m_allPoints = nullptr;
+		//std::vector<std::vector<Eigen::Vector3f>>* m_allNormals = nullptr;
+		//std::vector<std::vector<Eigen::Vector3f>>* m_allColors = nullptr;
+		//std::vector<std::map<int64_t, std::vector<Eigen::Vector2i>>>* m_allCorrs = nullptr;
+		//std::vector<std::vector<Eigen::Matrix3f>>* m_allFrameRwcs = nullptr;
+		//std::vector<std::vector<Eigen::Vector3f>>* m_allFrametwcs = nullptr;
+		std::vector<int> m_allPsSize;
+		std::vector<std::vector<Eigen::Vector3f>> m_allPoints;
+		std::vector<std::vector<Eigen::Vector3f>> m_allNormals;
+		std::vector<std::vector<Eigen::Vector3f>> m_allColors;
+		std::vector<std::map<int64_t, std::vector<Eigen::Vector2i>>> m_allCorrs;
+		std::vector<std::vector<Eigen::Matrix3f>> m_allFrameRwcs;
+		std::vector<std::vector<Eigen::Vector3f>> m_allFrametwcs;
+		std::function<void(const std::string&)> m_printFunc = nullptr; //输出debug信息
 	};
 
 

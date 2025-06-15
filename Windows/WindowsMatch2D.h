@@ -46,14 +46,14 @@ namespace QT_LYJ
 		}
 
 	private:
-		int64_t imagePair2Uint64(int _i1, int _i2) const
+		int64_t imagePair2Int64(int _i1, int _i2) const
 		{
 			if(_i1 <= _i2)
 				return (static_cast<int64_t>(_i1) << 32) | static_cast<int64_t>(_i2);
 			else
 				return (static_cast<int64_t>(_i2) << 32) | static_cast<int64_t>(_i1);
 		}
-		std::pair<int, int> uint642TwoImagePair(int64_t _pair) const
+		std::pair<int, int> int642TwoImagePair(int64_t _pair) const
 		{
 			int i1 = static_cast<int>(_pair >> 32);
 			int i2 = static_cast<int>(_pair & 0xFFFFFFFF);
