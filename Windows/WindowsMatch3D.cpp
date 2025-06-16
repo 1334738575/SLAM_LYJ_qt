@@ -15,12 +15,12 @@ namespace QT_LYJ
 			openGLWidget_->doneCurrent();
 			// ÑÓ³Ù´¥·¢¶Ô»°¿ò
 			QTimer::singleShot(0, this, [&]() {
-				//QString directoryPath = QFileDialog::getExistingDirectory(nullptr, "Open directory", "../QT/data");
-				//if (!directoryPath.isEmpty()) {
-				//	printLog("load module in " + directoryPath.toStdString());
-				//	loadModel(directoryPath);
-				//}
-				loadModel("../QT/data/3D");
+				QString directoryPath = QFileDialog::getExistingDirectory(nullptr, "Open directory", "../QT/data");
+				if (!directoryPath.isEmpty()) {
+					printLog("load module in " + directoryPath.toStdString());
+					loadModel(directoryPath);
+				}
+				//loadModel("../QT/data/3D");
 			});
 		});
 	}
@@ -51,6 +51,7 @@ namespace QT_LYJ
 		std::vector<std::vector<Eigen::Vector3f>>& allPoints = openGLWidget_->m_allPoints;
 		std::vector<std::vector<Eigen::Vector3f>>& allNormals = openGLWidget_->m_allNormals;
 		std::vector<std::vector<Eigen::Vector3f>>& allColors = openGLWidget_->m_allColors;
+		//std::vector<std::map<int64_t, std::vector<Eigen::Vector2i>>>& allCorrs = m_allCorrs;
 		std::vector<std::map<int64_t, std::vector<Eigen::Vector2i>>>& allCorrs = openGLWidget_->m_allCorrs;
 		std::vector<std::vector<Eigen::Matrix3f>>& allFrameRwcs = openGLWidget_->m_allFrameRwcs;
 		std::vector<std::vector<Eigen::Vector3f>>& allFrametwcs = openGLWidget_->m_allFrametwcs;
@@ -162,6 +163,17 @@ namespace QT_LYJ
 			}
 			mf.close();
 		}
+
+		//for (const auto& crs : allCorrs)
+		//{
+		//	openGLWidget_->m_allPairs.push_back(std::vector<int64_t>());
+		//	openGLWidget_->m_allCorrs.push_back(std::vector<std::vector<Eigen::Vector2i>>());
+		//	for (const auto& cr : crs)
+		//	{
+		//		openGLWidget_->m_allPairs.back().push_back(cr.first);
+		//		openGLWidget_->m_allCorrs.back().push_back(cr.second);
+		//	}
+		//}
 
 		//openGLWidget_->setMatchData(m_iter, m_frameSize, m_enableNormal, m_enableColor,
 		//	&m_allPsSize, &m_allPoints, &m_allNormals, &m_allColors,

@@ -15,7 +15,8 @@
 #include <Eigen/Core>
 #include <Eigen/Eigen>
 
-namespace QT_LYJ {
+namespace QT_LYJ 
+{
 
 	int64_t imagePair2Int64(int _i1, int _i2);
 	std::pair<int, int> int642TwoImagePair(int64_t _pair);
@@ -129,24 +130,21 @@ namespace QT_LYJ {
 
 	public:
 		int m_curIter = 0;
-		int m_iter = 0;
+		int m_iter = 10;
 		int m_frameSize = 0;
 		int m_enableNormal = 0;
 		int m_enableColor = 0;
-		//std::vector<int>* m_allPsSize = nullptr;
-		//std::vector<std::vector<Eigen::Vector3f>>* m_allPoints = nullptr;
-		//std::vector<std::vector<Eigen::Vector3f>>* m_allNormals = nullptr;
-		//std::vector<std::vector<Eigen::Vector3f>>* m_allColors = nullptr;
-		//std::vector<std::map<int64_t, std::vector<Eigen::Vector2i>>>* m_allCorrs = nullptr;
-		//std::vector<std::vector<Eigen::Matrix3f>>* m_allFrameRwcs = nullptr;
-		//std::vector<std::vector<Eigen::Vector3f>>* m_allFrametwcs = nullptr;
+
 		std::vector<int> m_allPsSize;
 		std::vector<std::vector<Eigen::Vector3f>> m_allPoints;
 		std::vector<std::vector<Eigen::Vector3f>> m_allNormals;
 		std::vector<std::vector<Eigen::Vector3f>> m_allColors;
+		//std::vector<std::vector<int64_t>> m_allPairs;
+		//std::vector<std::vector<std::vector<Eigen::Vector2i>>> m_allCorrs;
 		std::vector<std::map<int64_t, std::vector<Eigen::Vector2i>>> m_allCorrs;
 		std::vector<std::vector<Eigen::Matrix3f>> m_allFrameRwcs;
 		std::vector<std::vector<Eigen::Vector3f>> m_allFrametwcs;
+
 		std::function<void(const std::string&)> m_printFunc = nullptr; //输出debug信息
 	};
 

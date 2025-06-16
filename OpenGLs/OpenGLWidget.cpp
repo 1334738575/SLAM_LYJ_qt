@@ -139,17 +139,20 @@ namespace QT_LYJ {
 		m_frameSize = _frameSize;
 		m_enableNormal = _enableNormal;
 		m_enableColor = _enableColor;
-		//m_allPsSize = _allPsSize;
-		//m_allPoints = _allPoints;
-		//m_allNormals = _allNormals;
-		//m_allColors = _allColors;
-		//m_allCorrs = _allCorrs;
-		//m_allFrameRwcs = _allFrameRwcs;
-		//m_allFrametwcs = _allFrametwcs;
 		m_allPsSize = *_allPsSize;
 		m_allPoints = *_allPoints;
 		m_allNormals = *_allNormals;
 		m_allColors = *_allColors;
+		//for (const auto& crs : *_allCorrs)
+		//{
+		//	m_allPairs.push_back(std::vector<int64_t>());
+		//	m_allCorrs.push_back(std::vector<std::vector<Eigen::Vector2i>>());
+		//	for (const auto& cr : crs)
+		//	{
+		//		m_allPairs.back().push_back(cr.first);
+		//		m_allCorrs.back().push_back(cr.second);
+		//	}
+		//}
 		m_allCorrs = *_allCorrs;
 		m_allFrameRwcs = *_allFrameRwcs;
 		m_allFrametwcs = *_allFrametwcs;
@@ -166,13 +169,9 @@ namespace QT_LYJ {
 
 		//m_allPsSize m_allPoints
 		const auto& fSize = m_frameSize;
-		//const auto& allPsSize = *m_allPsSize;
-		//const auto& allPoints = *m_allPoints;
-		//const auto& corrs = m_allCorrs->at(_iter);
-		//const auto& Rwcs = m_allFrameRwcs->at(_iter);
-		//const auto& twcs = m_allFrametwcs->at(_iter);
 		const auto& allPsSize = m_allPsSize;
 		const auto& allPoints = m_allPoints;
+		//const auto& pairs = m_allPairs.at(_iter);
 		const auto& corrs = m_allCorrs.at(_iter);
 		const auto& Rwcs = m_allFrameRwcs.at(_iter);
 		const auto& twcs = m_allFrametwcs.at(_iter);
@@ -186,13 +185,40 @@ namespace QT_LYJ {
 				m_points[allPsSize[i] + j] = QVector3D(xw, yw, zw);
 			}
 		}
+		//std::vector<int> corrsSize(corrs.size() + 1, 0);
+		//int cnt = 1;
+		//for (const auto& crs : corrs) {
+		//	corrsSize[cnt] = crs.size() + corrsSize[cnt-1];
+		//	++cnt;
+		//}
+		//m_lines.resize(corrsSize.back());
+		//cnt = 0;
+		//int cnt2 = 0;
+		//std::pair<int, int> fIds;
+		//int sss = corrs.size();
+		//for (int i = 0; i < sss; ++i) {
+		//	const auto& ind = pairs[i];
+		//	fIds = int642TwoImagePair(ind);
+		//	const auto& fId1 = fIds.first;
+		//	const auto& fId2 = fIds.second;
+		//	const auto& ms = corrs[i];
+		//	cnt2 = 0;
+		//	for (const auto& m : ms) {
+		//		m_lines[corrsSize[cnt] + cnt2] = LineInds(
+		//			allPsSize[fId1] + m.x(),
+		//			allPsSize[fId2] + m.y()
+		//		);
+		//		++cnt2;
+		//	}
+		//	++cnt;
+		//}
 		std::vector<int> corrsSize(corrs.size() + 1, 0);
-		int cnt = 1;
+		int cnt = 0;
 		for (const auto& crs : corrs) {
-			corrsSize[cnt+1] = crs.second.size() + corrsSize[cnt];
+			corrsSize[cnt + 1] = crs.second.size() + corrsSize[cnt];
 			++cnt;
 		}
-		m_lines.resize(corrsSize[fSize]);
+		m_lines.resize(corrsSize.back());
 		cnt = 0;
 		int cnt2 = 0;
 		std::pair<int, int> fIds;
@@ -212,6 +238,7 @@ namespace QT_LYJ {
 			}
 			++cnt;
 		}
+
 		std::string logStr = "";
 		logStr += "Iter: " + std::to_string(_iter) + "\n";
 		if (m_printFunc)
