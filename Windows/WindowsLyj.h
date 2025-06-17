@@ -26,8 +26,8 @@ namespace QT_LYJ {
 		~WindowsLyj();
 
 	protected:
-		void addBotton(const std::string _name, std::function<void()> _func = nullptr);
-		void addLabel(const std::string _name);
+		void addBotton(const std::string _name, int _si, int _sj, int _r, int _c, std::function<void()> _func = nullptr);
+		void addLabel(const std::string _name, int _si, int _sj, int _r, int _c);
 		void printLog(const std::string _log);
 
 		void changeImage(const std::string _path);
@@ -121,7 +121,7 @@ namespace QT_LYJ {
 		OpenGLWidgetLyj* openGLWidget_ = nullptr;
 		std::vector<QLabel*> labels_;
 		std::vector<QPushButton*> buttons_;
-		QVBoxLayout* layout_ = nullptr;
+		QGridLayout* layout_ = nullptr;
 		int w_ = 1200;
 		int h_ = 1000;
 		QWidget* centralWidget = nullptr;

@@ -6,6 +6,7 @@
 #include "QT_LYJ.h"
 //#include "SLAM_LYJ.h"
 #include "OpenGLs/OpenGLTest.h"
+#include "OpenGLs/OpenGLWidget2.h"
 #include "Windows/WindowsLyj.h"
 #include "Windows/WindowsMatch3D.h"
 #include "Windows/WindowsMatch.h"
@@ -65,7 +66,8 @@ public:
 		setWindowTitle("OpenGL Window");
 		setFixedSize(800, 600);
 
-		OpenGLWidget *openGLWidget = new OpenGLWidget(this);
+		//OpenGLWidget* openGLWidget = new OpenGLWidget(this);
+		MyOpenGLWidget* openGLWidget = new MyOpenGLWidget(this);
 		QVBoxLayout *layout = new QVBoxLayout(this);
 		layout->addWidget(openGLWidget);
 	}
@@ -140,8 +142,8 @@ int testQT(int argc, char* argv[])
 	// testButton();
 	// testLabel();
 	// testImage();
-	 testWindow(argc, argv);
-	 //testOpenGL();
+	 //testWindow(argc, argv);
+	 testOpenGL();
 
 	return 1;
 }

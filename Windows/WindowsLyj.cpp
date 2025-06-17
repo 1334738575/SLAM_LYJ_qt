@@ -11,21 +11,21 @@ namespace QT_LYJ {
 		//QWidget* centralWidget = new QWidget(this);
 		centralWidget = new QWidget(this);
 		centralWidget->resize(w_, h_);
-		layout_ = new QVBoxLayout();
+		layout_ = new QGridLayout();
 
 		//add quit
 		QPushButton* qButton = new QPushButton("quit", centralWidget);
-		layout_->addWidget(qButton);
+		layout_->addWidget(qButton, 5, 2, 1, 1);
 		connect(qButton, SIGNAL(clicked()), qApp, SLOT(quit()));
 		buttons_.push_back(qButton);
 
 		//opengl show
 		openGLWidget_ = new OpenGLWidgetLyj(this);
-		layout_->addWidget(openGLWidget_);
+		layout_->addWidget(openGLWidget_, 0, 0, 4, 5);
 
 		//labels
 		//addLabel("Hello, Qt!", "D:/testLyj/build/Release/down.png");
-		addLabel("log");
+		addLabel("log", 4, 0, 1, 6);
 
 		//layout
 		centralWidget->setLayout(layout_);
@@ -33,15 +33,15 @@ namespace QT_LYJ {
 
 	}
 
-	void WindowsLyj::addBotton(const std::string _name, std::function<void()> _func)
+	void WindowsLyj::addBotton(const std::string _name, int _si, int _sj, int _r, int _c, std::function<void()> _func)
 	{
 		QPushButton* button = new QPushButton(_name.c_str(), centralWidget);
-		layout_->addWidget(button);
+		layout_->addWidget(button, _si, _sj, _r, _c);
 		if (_func)
 			QObject::connect(button, &QPushButton::clicked, _func);
 		buttons_.push_back(button);
 	}
-	void WindowsLyj::addLabel(const std::string _name)
+	void WindowsLyj::addLabel(const std::string _name, int _si, int _sj, int _r, int _c)
 	{
 		//	QLabel* label = new QLabel(_name.c_str());
 		//	if (_path != "") {
@@ -49,11 +49,11 @@ namespace QT_LYJ {
 		//		label->setPixmap(pixmap);
 		//		label->resize(pixmap.size());
 		//	}
-		//	layout_->addWidget(label);
+		//	layout_->addWidget(label, _si, _sj, _r, _c);
 		//	labels_.push_back(label);
 		QLabel* label = new QLabel(_name.c_str());
 		label->setText(_name.c_str());
-		layout_->addWidget(label);
+		layout_->addWidget(label, _si, _sj, _r, _c);
 		labels_.push_back(label);
 	}
 

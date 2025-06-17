@@ -9,7 +9,7 @@ namespace QT_LYJ
 			printLog(_info);
 			});
 		//bottons
-		addBotton("load module", [&]() {
+		addBotton("load module", 0, 6, 1, 1, [&]() {
 			openGLWidget_->makeCurrent();
 			// 释放关键资源（可选）
 			openGLWidget_->doneCurrent();

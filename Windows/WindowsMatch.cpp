@@ -10,7 +10,7 @@ namespace QT_LYJ
 			};
 		m_windowsMatch2D = std::make_shared<WindowsMatch2D>(funcPrint);
 		//bottons
-		addBotton("load image", [&]() {
+		addBotton("load image", 1, 6, 1, 1, [&]() {
 			openGLWidget_->makeCurrent();
 			// 释放关键资源（可选）
 			openGLWidget_->doneCurrent();
