@@ -30,6 +30,14 @@ void main() {
 // 片段着色器源码,flat in uint faceID;避免插值
 const char* fragmentShaderSource = R"(
 #version 330 core
+out vec4 FragColor;
+void main() {
+    FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+}
+)";
+
+const char* fragmentShaderSource2 = R"(
+#version 330 core
 out uvec4 FragColor;
 void main() {
     FragColor = uvec4(
@@ -92,45 +100,55 @@ int testGL() {
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
-
+    //VBO
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
+    glEnableVertexAttribArray(0); // 顶点位置属性，shader中的location = 0
+    //EBO
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    //unbind
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-    // 创建着色器
+    //vertex
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
     glCompileShader(vertexShader);
-
+    //frag
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
     glCompileShader(fragmentShader);
-
+    //frag2
+    GLuint fragmentShader2 = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader2, 1, &fragmentShaderSource2, NULL);
+    glCompileShader(fragmentShader2);
+    //program
     GLuint shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
+    GLuint shaderProgram2 = glCreateProgram();
+    glAttachShader(shaderProgram2, vertexShader);
+    glAttachShader(shaderProgram2, fragmentShader2);
+    glLinkProgram(shaderProgram2);
 
     // 创建帧缓冲
     GLuint fbo;
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
     //创建颜色纹理（面片id）
     GLuint colorTex;
     glGenTextures(1, &colorTex);
     glBindTexture(GL_TEXTURE_2D, colorTex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, NULL);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glBindTexture(GL_TEXTURE_2D, 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTex, 0);
-
     // 创建深度纹理
     GLuint depthTexture;
     glGenTextures(1, &depthTexture);
@@ -138,29 +156,31 @@ int testGL() {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glBindTexture(GL_TEXTURE_2D, 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
-
+    //draw attachment
     GLenum drawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
     glDrawBuffers(1, drawBuffers);
-    //glReadBuffer(GL_NONE);
-
-    // 检查 FBO 是否完整
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        // FBO 不完整，处理错误
-        std::cout << "error!" << std::endl;
+    // 检查完整性（增强错误报告）
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        const char* errorMsg = "";
+        switch (status) {
+        case GL_FRAMEBUFFER_UNDEFINED: errorMsg = "Default FBO missing"; break;
+        case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT: errorMsg = "Attachment error"; break;
+        case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT: errorMsg = "No attachments"; break;
+        case GL_FRAMEBUFFER_UNSUPPORTED: errorMsg = "Format combo unsupported"; break;
+        }
+        std::cerr << "FBO Error: " << errorMsg << " (0x" << std::hex << status << ")" << std::endl;
     }
+    //unbind
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     // 主循环
     while (!glfwWindowShouldClose(window)) {
         glDisable(GL_BLEND); //输出8UI时，必须禁用
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LESS);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-        glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
         // 设置视图矩阵（摄像机在Z轴正方向）
         float projectM[16] = {
             fx,0,cx,SCR_WIDTH / 2,
@@ -174,22 +194,42 @@ int testGL() {
             0,0,1,0,
             0,0,0,1
         };
+        glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+        glBindVertexArray(VAO);
 
+        //默认缓冲帧
         //after vertex (-0.5, -0.5, 1, 1) (0.5, -0.5, 1, 1) (0, -0.5, 0.5, 1)
         //after pro (-0.5, -0.5, 1, 1) (0.5, -0.5, 1, 1) (0, -1, 1, 1)
         glUseProgram(shaderProgram);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, projectM);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, view);
-
-        glBindVertexArray(VAO);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glReadBuffer(GL_BACK);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         //glDrawArrays(GL_TRIANGLES, 0, indSize);
         glDrawElements(GL_TRIANGLES, indSize, GL_UNSIGNED_INT, 0);
 
+        // 绑定自定义帧缓冲
+        //after vertex (-0.5, -0.5, 1, 1) (0.5, -0.5, 1, 1) (0, -0.5, 0.5, 1)
+        //after pro (-0.5, -0.5, 1, 1) (0.5, -0.5, 1, 1) (0, -1, 1, 1)
+        glUseProgram(shaderProgram2);
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram2, "projection"), 1, GL_FALSE, projectM);
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram2, "view"), 1, GL_FALSE, view);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // 替换原有glClear调用
+        GLuint clearColor[4] = {0, 0, 0, 0};
+        glClearBufferuiv(GL_COLOR, 0, clearColor);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glDrawElements(GL_TRIANGLES, indSize, GL_UNSIGNED_INT, 0);
+        //读取颜色附件: 使用 glReadBuffer 指定颜色附件，然后通过 glReadPixels 读取。
+        //读取深度附件 : 直接调用 glReadPixels 并指定 GL_DEPTH_COMPONENT 作为格式，从而读取深度数据。
         //保存颜色
+        glReadBuffer(GL_COLOR_ATTACHMENT0);
         std::vector<uchar> colors(SCR_WIDTH * SCR_HEIGHT * 4);
         glReadPixels(0, 0, SCR_WIDTH, SCR_HEIGHT, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, colors.data());
         std::vector<uint32_t> fids(SCR_WIDTH* SCR_HEIGHT, UINT_MAX);
-        cv::Mat mm(SCR_HEIGHT, SCR_WIDTH, CV_8UC1);
+        cv::Mat mm = cv::Mat::zeros(SCR_HEIGHT, SCR_WIDTH, CV_8UC1);
         for (uint32_t i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
             uint32_t id = i * 4;
             if (((int)colors[id + 0] + (int)colors[id + 1] + (int)colors[id + 2] + (int)colors[id + 3]) == 0)
@@ -204,7 +244,6 @@ int testGL() {
             uint32_t ret = ((colors[id + 0]-1) << 24) | (colors[id + 1] << 16) | (colors[id + 2] << 8) | colors[id + 3];
             fids[i] = ret;
         }
-
         // 保存深度图
         std::vector<float> depthData(SCR_WIDTH * SCR_HEIGHT);
         glBindTexture(GL_TEXTURE_2D, depthTexture);
@@ -220,12 +259,12 @@ int testGL() {
             m.at<uchar>(y, x) = static_cast<unsigned char>(d * 255);
             m2.at<float>(y, x) = d * maxD;
         }
-
-
         cv::imshow("fid", mm);
         cv::imshow("111", m);
-        cv::waitKey();
+        //cv::waitKey();
+        //glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+        //update
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -235,6 +274,10 @@ int testGL() {
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
     glDeleteProgram(shaderProgram);
+    glDeleteProgram(shaderProgram2);
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+    glDeleteShader(fragmentShader2);
     glDeleteFramebuffers(1, &fbo);
     glDeleteTextures(1, &depthTexture);
     glDeleteTextures(1, &colorTex);
