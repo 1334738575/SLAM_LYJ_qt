@@ -27,6 +27,16 @@ void main() {
 }
 )";
 
+const char* vertexShaderSource2 = R"(
+#version 330 core
+layout (location = 0) in vec2 aPos;
+layout (location = 1) in vec2 aTexCoord;
+out vec2 TexCoord;
+void main() {
+    gl_Position = vec4(aPos, 0.0, 1.0);
+    TexCoord = aTexCoord;
+})";
+
 // 片段着色器源码,flat in uint faceID;避免插值
 const char* fragmentShaderSource = R"(
 #version 330 core
@@ -48,6 +58,15 @@ void main() {
     );
 }
 )";
+
+const char* fragmentShaderSource3 = R"(
+#version 330 core
+in vec2 TexCoord;
+out vec4 FragColor;
+uniform sampler2D texture1;
+void main() {
+    FragColor = texture(texture1, TexCoord);
+})";
 
 int testGL() {
     // 初始化GLFW
@@ -72,6 +91,8 @@ int testGL() {
         return -1;
     }
 
+    GLuint ttt = GL_UNSIGNED_BYTE;// GL_FLOAT; // GL_UNSIGNED_BYTE
+
     const int indSize = 6;
     const int vSize = indSize * 3;
     float fx = 1;
@@ -88,7 +109,6 @@ int testGL() {
          100.f, -100.f, 1.0f,  // 右下
          0.0f,  -200.f, 1.0f   // 顶部
     };
-
     // 索引数据（定义两个三角形）
     unsigned int indices[indSize] = {
         0, 1, 2,  // 第一个三角形
@@ -133,7 +153,10 @@ int testGL() {
     glLinkProgram(shaderProgram);
     GLuint shaderProgram2 = glCreateProgram();
     glAttachShader(shaderProgram2, vertexShader);
-    glAttachShader(shaderProgram2, fragmentShader2);
+    if(ttt == GL_FLOAT)
+        glAttachShader(shaderProgram2, fragmentShader);
+    else
+        glAttachShader(shaderProgram2, fragmentShader2);
     glLinkProgram(shaderProgram2);
 
     // 创建帧缓冲
@@ -144,8 +167,12 @@ int testGL() {
     GLuint colorTex;
     glGenTextures(1, &colorTex);
     glBindTexture(GL_TEXTURE_2D, colorTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, NULL);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    if (ttt == GL_FLOAT)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, ttt, NULL);//四通道float/四通道uint
+    else if (ttt == GL_UNSIGNED_BYTE)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA_INTEGER, ttt, NULL);//四通道uint
+    else
+        return 0;
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTex, 0);
@@ -176,6 +203,59 @@ int testGL() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
+
+
+    // 顶点数据（位置 + 纹理坐标）
+    float vertices2[16] = {
+        // 位置          // 纹理坐标
+        -0.5f,  0.5f,   0.0f, 1.0f,  // 左上
+         0.5f,  0.5f,   1.0f, 1.0f,  // 右上
+         0.5f, -0.5f,   1.0f, 0.0f,  // 右下
+        -0.5f, -0.5f,   0.0f, 0.0f   // 左下
+    };
+    unsigned int indices2[6] = {
+        0, 1, 2,
+        2, 3, 0
+    };
+    GLuint VAO2, VBO2, EBO2;
+    glGenVertexArrays(1, &VAO2);
+    glGenBuffers(1, &VBO2);
+    glGenBuffers(1, &EBO2);
+    glBindVertexArray(VAO2);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO2);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices2), vertices2, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO2);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices2), indices2, GL_STATIC_DRAW);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    GLuint vertexShader2 = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader2, 1, &vertexShaderSource2, NULL);
+    glCompileShader(vertexShader2);
+    GLuint fragmentShader3 = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader3, 1, &fragmentShaderSource3, NULL);
+    glCompileShader(fragmentShader3);
+    GLuint shaderProgram3 = glCreateProgram();
+    glAttachShader(shaderProgram3, vertexShader2);
+    glAttachShader(shaderProgram3, fragmentShader3);
+    glLinkProgram(shaderProgram3);
+    GLuint texture2;
+    glGenTextures(1, &texture2);
+    glBindTexture(GL_TEXTURE_2D, texture2);
+    cv::Mat mmm = cv::imread("D:/testLyj/QT/data/2D/images/0.png", CV_LOAD_IMAGE_UNCHANGED);
+    //cv::imshow("111", mmm);
+    //cv::waitKey();
+    unsigned char* data = mmm.data;
+    GLenum fmt = GL_RGBA;
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, mmm.cols, mmm.rows, 0, fmt, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+
     // 主循环
     while (!glfwWindowShouldClose(window)) {
         glDisable(GL_BLEND); //输出8UI时，必须禁用
@@ -197,6 +277,7 @@ int testGL() {
         glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
         glBindVertexArray(VAO);
 
+
         //默认缓冲帧
         //after vertex (-0.5, -0.5, 1, 1) (0.5, -0.5, 1, 1) (0, -0.5, 0.5, 1)
         //after pro (-0.5, -0.5, 1, 1) (0.5, -0.5, 1, 1) (0, -1, 1, 1)
@@ -209,10 +290,12 @@ int testGL() {
         //glDrawArrays(GL_TRIANGLES, 0, indSize);
         glDrawElements(GL_TRIANGLES, indSize, GL_UNSIGNED_INT, 0);
 
+
         // 绑定自定义帧缓冲
         //after vertex (-0.5, -0.5, 1, 1) (0.5, -0.5, 1, 1) (0, -0.5, 0.5, 1)
         //after pro (-0.5, -0.5, 1, 1) (0.5, -0.5, 1, 1) (0, -1, 1, 1)
         glUseProgram(shaderProgram2);
+        //glGetUniformLocation获取名称所在位置，1为矩阵数量，GL_FALSE列为主
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram2, "projection"), 1, GL_FALSE, projectM);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram2, "view"), 1, GL_FALSE, view);
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -222,27 +305,30 @@ int testGL() {
         glClearBufferuiv(GL_COLOR, 0, clearColor);
         glClear(GL_DEPTH_BUFFER_BIT);
         glDrawElements(GL_TRIANGLES, indSize, GL_UNSIGNED_INT, 0);
-        //读取颜色附件: 使用 glReadBuffer 指定颜色附件，然后通过 glReadPixels 读取。
-        //读取深度附件 : 直接调用 glReadPixels 并指定 GL_DEPTH_COMPONENT 作为格式，从而读取深度数据。
-        //保存颜色
-        glReadBuffer(GL_COLOR_ATTACHMENT0);
-        std::vector<uchar> colors(SCR_WIDTH * SCR_HEIGHT * 4);
-        glReadPixels(0, 0, SCR_WIDTH, SCR_HEIGHT, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, colors.data());
-        std::vector<uint32_t> fids(SCR_WIDTH* SCR_HEIGHT, UINT_MAX);
-        cv::Mat mm = cv::Mat::zeros(SCR_HEIGHT, SCR_WIDTH, CV_8UC1);
-        for (uint32_t i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
-            uint32_t id = i * 4;
-            if (((int)colors[id + 0] + (int)colors[id + 1] + (int)colors[id + 2] + (int)colors[id + 3]) == 0)
-                continue;
-            uchar r = colors[id + 0];
-            uchar g = colors[id + 1];
-            uchar b = colors[id + 2];
-            uchar a = colors[id + 3];
-            int x = i % SCR_WIDTH;
-            int y = i / SCR_WIDTH;
-            mm.at<uchar>(y, x) = a * 100 + 100;
-            uint32_t ret = ((colors[id + 0]-1) << 24) | (colors[id + 1] << 16) | (colors[id + 2] << 8) | colors[id + 3];
-            fids[i] = ret;
+        if (ttt == GL_UNSIGNED_BYTE) {
+            //读取颜色附件: 使用 glReadBuffer 指定颜色附件，然后通过 glReadPixels 读取。
+            //读取深度附件 : 直接调用 glReadPixels 并指定 GL_DEPTH_COMPONENT 作为格式，从而读取深度数据。
+            //保存颜色
+            glReadBuffer(GL_COLOR_ATTACHMENT0);
+            std::vector<uchar> colors(SCR_WIDTH * SCR_HEIGHT * 4);
+            glReadPixels(0, 0, SCR_WIDTH, SCR_HEIGHT, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, colors.data());
+            std::vector<uint32_t> fids(SCR_WIDTH* SCR_HEIGHT, UINT_MAX);
+            cv::Mat mm = cv::Mat::zeros(SCR_HEIGHT, SCR_WIDTH, CV_8UC1);
+            for (uint32_t i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
+                uint32_t id = i * 4;
+                if (((int)colors[id + 0] + (int)colors[id + 1] + (int)colors[id + 2] + (int)colors[id + 3]) == 0)
+                    continue;
+                uchar r = colors[id + 0];
+                uchar g = colors[id + 1];
+                uchar b = colors[id + 2];
+                uchar a = colors[id + 3];
+                int x = i % SCR_WIDTH;
+                int y = i / SCR_WIDTH;
+                mm.at<uchar>(y, x) = a * 100 + 100;
+                uint32_t ret = ((colors[id + 0]-1) << 24) | (colors[id + 1] << 16) | (colors[id + 2] << 8) | colors[id + 3];
+                fids[i] = ret;
+            }
+            cv::imshow("fid", mm);
         }
         // 保存深度图
         std::vector<float> depthData(SCR_WIDTH * SCR_HEIGHT);
@@ -259,10 +345,25 @@ int testGL() {
             m.at<uchar>(y, x) = static_cast<unsigned char>(d * 255);
             m2.at<float>(y, x) = d * maxD;
         }
-        cv::imshow("fid", mm);
         cv::imshow("111", m);
         //cv::waitKey();
-        //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindVertexArray(0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+
+        glBindVertexArray(VAO2);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glUseProgram(shaderProgram3);
+        glActiveTexture(GL_TEXTURE0);//激活纹理0
+        if(ttt == GL_FLOAT)
+            glBindTexture(GL_TEXTURE_2D, colorTex);
+        else
+            glBindTexture(GL_TEXTURE_2D, texture2);
+        glUniform1i(glGetUniformLocation(shaderProgram3, "texture1"), 0);//绑定创建的纹理到纹理0
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+
 
         //update
         glfwSwapBuffers(window);
@@ -281,6 +382,13 @@ int testGL() {
     glDeleteFramebuffers(1, &fbo);
     glDeleteTextures(1, &depthTexture);
     glDeleteTextures(1, &colorTex);
+    glDeleteVertexArrays(1, &VAO2);
+    glDeleteBuffers(1, &VBO2);
+    glDeleteBuffers(1, &EBO2);
+    glDeleteProgram(shaderProgram3);
+    glDeleteShader(vertexShader2);
+    glDeleteShader(fragmentShader3);
+    glDeleteTextures(1, &texture2);
 
     glfwTerminate();
     return 0;
