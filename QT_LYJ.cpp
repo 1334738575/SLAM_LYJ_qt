@@ -142,8 +142,8 @@ int testQT(int argc, char* argv[])
 	// testButton();
 	// testLabel();
 	// testImage();
-	 //testWindow(argc, argv);
-	 testOpenGL();
+	 testWindow(argc, argv);
+	 //testOpenGL();
 
 	return 1;
 }
