@@ -23,7 +23,6 @@ static int testButton()
 	button.show();
 	return app.exec();
 }
-
 static int testLabel()
 {
 	int argc = 0;
@@ -34,7 +33,6 @@ static int testLabel()
 	label.show();
 	return app.exec();
 }
-
 static int testImage()
 {
 	int argc = 0;
@@ -47,7 +45,6 @@ static int testImage()
 	label.show();
 	return app.exec();
 }
-
 static int testWindow(int argc, char* argv[])
 {
 	QApplication app(argc, argv);
@@ -72,7 +69,6 @@ public:
 		layout->addWidget(openGLWidget);
 	}
 };
-
 static int testOpenGL()
 {
 	bool justOpenGL = false;
@@ -147,10 +143,19 @@ int testQT(int argc, char* argv[])
 
 	return 1;
 }
-
 QT_LYJ_API int testOpenGLOnly()
 {
 	return testGL();
+}
+
+
+
+QT_LYJ_API void debugWindows(int argc, char* argv[])
+{
+	QApplication app(argc, argv);
+	WindowsMatch window;
+	window.show();
+	app.exec();
 }
 
 NSP_QT_LYJ_END

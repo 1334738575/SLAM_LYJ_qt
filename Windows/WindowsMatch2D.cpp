@@ -15,15 +15,20 @@ namespace QT_LYJ
 			std::ifstream kpf(kpPath);
 			std::string header = "";
 			int pointSize = 0;
+			int imgId = 0;
 			kpf >> header;
 			kpf >> header >> m_imgSize;
 			m_allKeyPoints.resize(m_imgSize);
 			kpf >> header;
+			float x, y;
 			for (int i = 0; i < m_imgSize; ++i) {
+				kpf >> imgId;
 				kpf >> pointSize;
 				m_allKeyPoints[i].resize(pointSize);
 				for (int j = 0; j < pointSize; ++j) {
-					kpf >> m_allKeyPoints[i][j].x >> m_allKeyPoints[i][j].y;
+					kpf >>x >> y;
+					m_allKeyPoints[i][j].x = x;
+					m_allKeyPoints[i][j].y = y;
 				}
 			}
 			kpf.close();
@@ -54,11 +59,13 @@ namespace QT_LYJ
 			std::ifstream klf(klPath);
 			std::string header = "";
 			int lineSize = 0;
+			int imgId = 0;
 			klf >> header;
 			klf >> header >> m_imgSize;
 			m_allKeyLines.resize(m_imgSize);
 			klf >> header;
 			for (int i = 0; i < m_imgSize; ++i) {
+				klf >> imgId;
 				klf >> lineSize;
 				m_allKeyLines[i].resize(lineSize);
 				for (int j = 0; j < lineSize; ++j) {
