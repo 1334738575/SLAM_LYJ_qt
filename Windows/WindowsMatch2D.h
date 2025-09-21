@@ -19,7 +19,9 @@ namespace QT_LYJ
 			SPOINT,
 			SPOINTMATCH,
 			SLINE,
-			SLINEMATCH
+			SLINEMATCH,
+			SEDGE,
+			SEDGEMATCH
 		};
 		WindowsMatch2D(std::function<void(const std::string&)> _printFunc = nullptr);
 		~WindowsMatch2D();
@@ -89,6 +91,9 @@ namespace QT_LYJ
 		std::vector<std::vector<cv::Vec4f>> m_allKeyLines;
 		std::map<int, std::vector<ImgInd>> m_allKLImgPairs;
 		std::map<int64_t, std::vector<Mth>> m_allLineMatches;
+		std::vector<std::vector<cv::Point>> m_allEdgePoints;
+		std::map<int, std::vector<ImgInd>> m_allEPImgPairs;
+		std::map<int64_t, std::vector<Mth>> m_allEdgeMatches;
 		std::vector<std::string> m_allImageNames;
 	};
 }

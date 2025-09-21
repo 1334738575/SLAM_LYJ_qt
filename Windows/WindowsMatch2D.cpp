@@ -95,6 +95,50 @@ namespace QT_LYJ
 			mf.close();
 		}
 
+		{
+			std::string egPath = _path + "/EdgePoints.txt";
+			std::ifstream egf(egPath);
+			std::string header = "";
+			int edgeSize = 0;
+			int imgId = 0;
+			egf >> header;
+			egf >> header >> m_imgSize;
+			m_allEdgePoints.resize(m_imgSize);
+			egf >> header;
+			float x, y;
+			for (int i = 0; i < m_imgSize; ++i) {
+				egf >> imgId;
+				egf >> edgeSize;
+				m_allEdgePoints[i].resize(edgeSize);
+				for (int j = 0; j < edgeSize; ++j) {
+					egf >> x >> y;
+					m_allEdgePoints[i][j].x = x;
+					m_allEdgePoints[i][j].y = y;
+				}
+			}
+			egf.close();
+		}
+		{
+			std::string egmPath = _path + "/EdgeMatches.txt";
+			std::ifstream egmf(egmPath);
+			std::string header = "";
+			int framePair = 0, frameId1, frameId2, edgeMatchSize = 0, mId1, mId2;
+			egmf >> header;
+			egmf >> header >> framePair;
+			egmf >> header;
+			uint64_t pairId = 0;
+			for (int i = 0; i < framePair; ++i) {
+				egmf >> frameId1 >> frameId2 >> edgeMatchSize;
+				pairId = imagePair2Int64(frameId1, frameId2);
+				m_allEdgeMatches[pairId].resize(edgeMatchSize);
+				m_allEPImgPairs[frameId1].emplace_back(frameId2, pairId);
+				for (int j = 0; j < edgeMatchSize; ++j) {
+					egmf >> m_allEdgeMatches[pairId][j].first >> m_allEdgeMatches[pairId][j].second;
+				}
+			}
+			egmf.close();
+		}
+
 		m_imgTmp1 = cv::imread(_path + "/images/0.png");
 		m_w = m_imgTmp1.cols;
 		m_h = m_imgTmp1.rows;
@@ -124,25 +168,28 @@ namespace QT_LYJ
 		int kpMSize = 0;
 		int klSize = 0;
 		int klMSize = 0;
+		int egSize = 0;
+		int egMSize = 0;
 
 		int key = -1;
 		std::string logStr = "Windows Match 2D, status: " + getStatusString() \
-			+ ", imgId1: " + std::to_string(imgId1) + ", imgId2: " + std::to_string(imgId2.first) \
+			+ ", imgId1: " + std::to_string(imgId1) + ", imgId2: " + std::to_string(imgId2.first) + "\n" \
 			+ ", kp size: " + std::to_string(kpSize) + ", kp match size: " + std::to_string(kpMSize) \
 			+ ", kl size: " + std::to_string(klSize) + ", kl match size: " + std::to_string(klMSize) \
+			+ ", eg size: " + std::to_string(egSize) + ", eg match size: " + std::to_string(egMSize) + "\n" \
 			+ ", step: " + std::to_string(s) + "\n";
 		while (key != 27 || m_status != SDEFAULT) //esc
 		{
 			if (key == 'w') {
-				if (m_status == SDEFAULT || m_status == SPOINT || m_status == SLINE)
+				if (m_status == SDEFAULT || m_status == SPOINT || m_status == SLINE || m_status == SEDGE)
 					imgId1 = (imgId1 + s) >= m_imgSize ? m_imgSize - 1 : (imgId1 + s);
-				else if (m_status == SPOINTMATCH || m_status == SLINEMATCH)
+				else if (m_status == SPOINTMATCH || m_status == SLINEMATCH || m_status == SEDGEMATCH)
 					ind2 = (ind2 + s) >= pairSize ? pairSize - 1 : (ind2 + s);
 			}
 			else if (key == 's') {
-				if (m_status == SDEFAULT || m_status == SPOINT || m_status == SLINE)
+				if (m_status == SDEFAULT || m_status == SPOINT || m_status == SLINE || m_status == SEDGE)
 					imgId1 = (imgId1 - s) < 0 ? 0 : (imgId1 - s);
-				else if (m_status == SPOINTMATCH || m_status == SLINEMATCH)
+				else if (m_status == SPOINTMATCH || m_status == SLINEMATCH || m_status == SEDGEMATCH)
 					ind2 = (ind2 - s) < 0 ? 0 : (ind2 - s);
 			}
 			else if (key == 13) { // enter
@@ -156,6 +203,11 @@ namespace QT_LYJ
 					imgInds = m_allKLImgPairs[imgId1];
 					ind2 = 0;
 				}
+				else if (m_status == SEDGE) {
+					m_status = SEDGEMATCH;
+					imgInds = m_allEPImgPairs[imgId1];
+					ind2 = 0;
+				}
 				pairSize = imgInds.size();
 			}
 			else if (key == 27) { // esc
@@ -167,6 +219,8 @@ namespace QT_LYJ
 					m_status = SPOINT;
 				else if (m_status == SLINEMATCH)
 					m_status = SLINE;
+				else if (m_status == SEDGEMATCH)
+					m_status = SEDGE;
 				else
 					m_status = SDEFAULT;
 			}
@@ -176,15 +230,19 @@ namespace QT_LYJ
 				else if (m_status == SPOINT)
 					m_status = SLINE;
 				else if (m_status == SLINE)
+					m_status = SEDGE;
+				else if (m_status == SEDGE)
 					m_status = SDEFAULT;
 			}
 			else if (key == 'a') {
 				if (m_status == SDEFAULT)
+					m_status = SEDGE;
+				else if (m_status == SEDGE)
 					m_status = SLINE;
-				else if (m_status == SPOINT)
-					m_status = SDEFAULT;
 				else if (m_status == SLINE)
 					m_status = SPOINT;
+				else if (m_status == SPOINT)
+					m_status = SDEFAULT;
 			}
 			else if (key == 'e') {
 				s *= 2;
@@ -204,22 +262,29 @@ namespace QT_LYJ
 			kpMSize = 0;
 			klSize = 0;
 			klMSize = 0;
+			egSize = 0;
+			egMSize = 0;
 			fSize = drawFeatures(m_imgTmp1, imgId1, m_status);
 			if (m_status == SPOINT || m_status == SPOINTMATCH)
 				kpSize = fSize;
 			else if(m_status == SLINE || m_status == SLINEMATCH)
 				klSize = fSize;
+			else if (m_status == SEDGE || m_status == SEDGEMATCH)
+				egSize = fSize;
 			drawFeatures(m_imgTmp2, imgId2.first, m_status);
 			mSize = drawMatches(m_imgTmp1, m_imgTmp2, imgId1, imgId2, m_status, m_m2Show);
 			if (m_status == SPOINT || m_status == SPOINTMATCH)
 				kpMSize = mSize;
 			else if (m_status == SLINE || m_status == SLINEMATCH)
 				klMSize = mSize;
+			else if (m_status == SEDGE || m_status == SEDGEMATCH)
+				egMSize = mSize;
 
 			logStr = "Windows Match 2D, status: " + getStatusString() \
-				+ ", imgId1: " + std::to_string(imgId1) + ", imgId2: " + std::to_string(imgId2.first) \
+				+ ", imgId1: " + std::to_string(imgId1) + ", imgId2: " + std::to_string(imgId2.first) + "\n" \
 				+ ", kp size: " + std::to_string(kpSize) + ", kp match size: " + std::to_string(kpMSize) \
 				+ ", kl size: " + std::to_string(klSize) + ", kl match size: " + std::to_string(klMSize) \
+				+ ", eg size: " + std::to_string(egSize) + ", eg match size: " + std::to_string(egMSize) + "\n" \
 				+ ", step: " + std::to_string(s) + "\n";
 			m_printFunc(logStr);
 			cv::imshow("Windows Match 2D", m_m2Show);
@@ -244,6 +309,11 @@ namespace QT_LYJ
 			drawKeyLines(_img, m_allKeyLines[_imgId], cv::Scalar(0, 0, 255));
 			return m_allKeyLines[_imgId].size();
 		}
+		else if (_status == SEDGE || _status == SEDGEMATCH) {
+			drawKeyPoints(_img, m_allEdgePoints[_imgId], cv::Scalar(0, 0, 255));
+			return m_allEdgePoints[_imgId].size();
+		}
+		return 0;
 	}
 	int WindowsMatch2D::drawMatches(const cv::Mat& _img1, const cv::Mat& _img2,
 		const int _imgId1, const ImgInd _imgId2,
@@ -268,6 +338,14 @@ namespace QT_LYJ
 			drawKeyLineMatches(_img1, _img2, keyLines1, keyLines2, matches, _img2Show, cv::Scalar(255, 0, 0));
 			return matches.size();
 		}
+		else if (m_status == SEDGEMATCH) {
+			const std::vector<Mth>& matches = m_allEdgeMatches[_imgId2.second];
+			const std::vector<cv::Point>& edgePoints1 = m_allEdgePoints[_imgId1];
+			const std::vector<cv::Point>& edgePoints2 = m_allEdgePoints[imgId2];
+			drawKeyPointMatches(_img1, _img2, edgePoints1, edgePoints2, matches, _img2Show, cv::Scalar(255, 0, 0));
+			return matches.size();
+		}
+		return 0;
 	}
 
 	void WindowsMatch2D::drawKeyPoints(cv::Mat& _img, const std::vector<cv::Point>& _keyPoints, const cv::Scalar& _color)
