@@ -105,14 +105,6 @@ if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
         RUNTIME_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
     )
 endif()
-#output
-if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
-    set_target_properties(${PROJECT_NAME} PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
-    ARCHIVE_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
-    RUNTIME_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
-    )
-endif()
 
 # ################################example##################################
 # add_executable(${PROJECT_NAME}Bin example/main.cpp)
