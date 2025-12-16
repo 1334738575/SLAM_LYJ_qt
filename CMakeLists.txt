@@ -52,13 +52,17 @@ set(${PROJECT_NAME}_LIBRARIES)
 set(${PROJECT_NAME}_BINARY_DIRS)
 find_package(Qt5 REQUIRED COMPONENTS Widgets Core Gui OpenGL)
 # message(FATAL_ERROR ${QT5_DIR})
+list(APPEND CMAKE_MODULE_PATH "D:/SLAM_LYJ/dependencies/Glfw")
 find_package(Glfw)
 include_directories(${GLFW_INCLUDE_DIRS})
+list(APPEND CMAKE_MODULE_PATH "D:/SLAM_LYJ/dependencies/Glew")
 find_package(Glew)
 include_directories(${GLEW_INCLUDE_DIRS})
 # find_package(glm)
 # include_directories(${GLM_INCLUDE_DIRS})
+set(OpenCV_DIR "D:/SLAM_LYJ/dependencies/Opencv/lib")
 find_package(OpenCV REQUIRED)
+set(Eigen3_DIR "D:/SLAM_LYJ/dependencies/Eigen/share/eigen3/cmake")
 find_package(Eigen3)
 list(APPEND ${PROJECT_NAME}_INCLUDE_DIRS ${GLFW_INCLUDE_DIRS})
 list(APPEND ${PROJECT_NAME}_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
@@ -71,6 +75,23 @@ list(APPEND ${PROJECT_NAME}_LIBRARIES
  ${GLEW_LIBRARIES} 
  ${OpenCV_LIBS}
 )
+
+set(COMMON_LYJ_DIR "D:/SLAM_LYJ_Packages/SLAM_LYJ_COMMON/install/lib/cmake")
+find_package(COMMON_LYJ)
+list(APPEND ${PROJECT_NAME}_LIBRARIES COMMON_LYJ::COMMON_LYJ)
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "${COMMON_LYJ_DIR}/../../bin;")
+
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/testLyj/GLFW/glfw-3.4.bin.WIN64/lib-vc2022;")
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/Glew/bin/Release/x64;")
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "E:/anaconda3/pkgs/qt-main-5.15.2-h19c9488_10/Library/bin;")
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "${OpenCV_INSTALL_PATH}/bin;")
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/libpng/bin;")
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/zlib/bin;")
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "E:/anaconda3/pkgs/icu-73.1-h6c2663c_0/Library/bin;")
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "E:/anaconda3/pkgs/zstd-1.5.5-hd43e919_2/Library/bin;")
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/flann/bin\;")
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/lz4/bin\;")
+
 # list(APPEND ${PROJECT_NAME}_BINARY_DIRS )
 include_directories(${${PROJECT_NAME}_INCLUDE_DIRS})
 
@@ -107,21 +128,21 @@ if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
 endif()
 
 # ################################example##################################
-# add_executable(${PROJECT_NAME}Bin example/main.cpp)
-# target_include_directories(${PROJECT_NAME}Bin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-# target_link_libraries(${PROJECT_NAME}Bin PRIVATE ${PROJECT_NAME})
+add_executable(${PROJECT_NAME}Bin example/main.cpp)
+target_include_directories(${PROJECT_NAME}Bin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${${PROJECT_NAME}_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME}Bin PRIVATE ${PROJECT_NAME} ${${PROJECT_NAME}_LIBRARIES})
 
-# if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
-#     set_target_properties(${PROJECT_NAME}Bin PROPERTIES
-#         LIBRARY_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
-#         ARCHIVE_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
-#         RUNTIME_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
-#     )
-# endif()
+if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
+    set_target_properties(${PROJECT_NAME}Bin PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
+        ARCHIVE_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
+        RUNTIME_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
+    )
+endif()
 
-# if(MSVC)
-#     set_target_properties(${PROJECT_NAME}Bin PROPERTIES VS_DEBUGGER_ENVIRONMENT "PATH=${${PROJECT_NAME}_BINARY_DIRS}")
-# endif()
+if(MSVC)
+    set_target_properties(${PROJECT_NAME}Bin PROPERTIES VS_DEBUGGER_ENVIRONMENT "PATH=${${PROJECT_NAME}_BINARY_DIRS}")
+endif()
 
 # ################################install##################################
 file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in

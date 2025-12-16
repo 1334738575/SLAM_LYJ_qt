@@ -5,14 +5,13 @@
 //#include <opencv2/line_descriptor/descriptor.hpp>
 //#include <opencv2/features2d.hpp>
 //#include <opencv2/xfeatures2d.hpp>
+#include "DataIO/DataWin2D.h"
 
 namespace QT_LYJ
 {
 	class WindowsMatch2D
 	{
 	public:
-		using Mth = std::pair<int, int>;
-		using ImgInd = std::pair<int, int64_t>;
 		enum ShowStatus
 		{
 			SDEFAULT = 0,
@@ -48,19 +47,6 @@ namespace QT_LYJ
 		}
 
 	private:
-		int64_t imagePair2Int64(int _i1, int _i2) const
-		{
-			if(_i1 <= _i2)
-				return (static_cast<int64_t>(_i1) << 32) | static_cast<int64_t>(_i2);
-			else
-				return (static_cast<int64_t>(_i2) << 32) | static_cast<int64_t>(_i1);
-		}
-		std::pair<int, int> int642TwoImagePair(int64_t _pair) const
-		{
-			int i1 = static_cast<int>(_pair >> 32);
-			int i2 = static_cast<int>(_pair & 0xFFFFFFFF);
-			return { i1, i2 };
-		}
 
 		int drawFeatures(cv::Mat& _img, int _imgId, ShowStatus _status);
 		int drawMatches(const cv::Mat& _img1, const cv::Mat& _img2, const int _imgId1, const ImgInd _imgId2,
