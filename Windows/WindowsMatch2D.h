@@ -71,15 +71,20 @@ namespace QT_LYJ
 		cv::Rect m_rect2;
 		ShowStatus m_status = SDEFAULT;
 		std::function<void(const std::string&)> m_printFunc = nullptr; // ‰≥ˆdebug–≈œ¢
-		std::vector<std::vector<cv::Point>> m_allKeyPoints;
-		std::map<int, std::vector<ImgInd>> m_allKPImgPairs;
-		std::map<int64_t, std::vector<Mth>> m_allPointMatches;
-		std::vector<std::vector<cv::Vec4f>> m_allKeyLines;
-		std::map<int, std::vector<ImgInd>> m_allKLImgPairs;
-		std::map<int64_t, std::vector<Mth>> m_allLineMatches;
-		std::vector<std::vector<cv::Point>> m_allEdgePoints;
-		std::map<int, std::vector<ImgInd>> m_allEPImgPairs;
-		std::map<int64_t, std::vector<Mth>> m_allEdgeMatches;
+
+		Data2DPoint m_dt2DP;
+		Data2DLine m_dt2DL;
+		Data2DEdge m_dt2DE;
+		//std::vector<std::vector<cv::Point>> m_allKeyPoints;
+		//std::map<int, std::vector<ImgInd>> m_allKPImgPairs;
+		//std::map<int64_t, std::vector<Mth>> m_allPointMatches;
+		//std::vector<std::vector<cv::Vec4f>> m_allKeyLines;
+		//std::map<int, std::vector<ImgInd>> m_allKLImgPairs;
+		//std::map<int64_t, std::vector<Mth>> m_allLineMatches;
+		//std::vector<std::vector<cv::Point>> m_allEdgePoints;
+		//std::map<int, std::vector<ImgInd>> m_allEPImgPairs;
+		//std::map<int64_t, std::vector<Mth>> m_allEdgeMatches;
+
 		std::vector<std::string> m_allImageNames;
 	};
 }

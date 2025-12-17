@@ -11,133 +11,154 @@ namespace QT_LYJ
 	void WindowsMatch2D::loadModel(const std::string& _path)
 	{
 		{
-			std::string kpPath = _path + "/KeyPoints.txt";
-			std::ifstream kpf(kpPath);
-			std::string header = "";
-			int pointSize = 0;
-			int imgId = 0;
-			kpf >> header;
-			kpf >> header >> m_imgSize;
-			m_allKeyPoints.resize(m_imgSize);
-			kpf >> header;
-			float x, y;
-			for (int i = 0; i < m_imgSize; ++i) {
-				kpf >> imgId;
-				kpf >> pointSize;
-				m_allKeyPoints[i].resize(pointSize);
-				for (int j = 0; j < pointSize; ++j) {
-					kpf >>x >> y;
-					m_allKeyPoints[i][j].x = x;
-					m_allKeyPoints[i][j].y = y;
-				}
-			}
-			kpf.close();
-		}
-		{
-			std::string mPath = _path + "/Matches.txt";
-			std::ifstream mf(mPath);
-			std::string header = "";
-			int framePair = 0, frameId1, frameId2, matchSize = 0, mId1, mId2;
-			mf >> header;
-			mf >> header >> framePair;
-			mf >> header;
-			uint64_t pairId = 0;
-			for (int i = 0; i < framePair; ++i) {
-				mf >> frameId1 >> frameId2 >> matchSize;
-				pairId = imagePair2Int64(frameId1, frameId2);
-				m_allPointMatches[pairId].resize(matchSize);
-				m_allKPImgPairs[frameId1].emplace_back(frameId2, pairId);
-				for (int j = 0; j < matchSize; ++j) {
-					mf >> m_allPointMatches[pairId][j].first >> m_allPointMatches[pairId][j].second;
-				}
-			}
-			mf.close();
+			std::string data2DPath = _path + "/FeaturesAndMatches.bin";
+			COMMON_LYJ::readBinFile<Data2DPoint, Data2DLine, Data2DEdge>(data2DPath, m_dt2DP, m_dt2DL, m_dt2DE);
+			//m_allKeyPoints = m_dt2DP.m_allKeyPoints;
+			//m_allKPImgPairs = m_dt2DP.m_allKPImgPairs;
+			//m_allPointMatches = m_dt2DP.m_allPointMatches;
+			//m_allKeyLines = m_dt2DL.m_allKeyLines;
+			//m_allKLImgPairs = m_dt2DL.m_allKLImgPairs;
+			//m_allLineMatches = m_dt2DL.m_allLineMatches;
+			//m_allEdgePoints = m_dt2DE.m_allEdgePoints;
+			//m_allEPImgPairs = m_dt2DE.m_allEPImgPairs;
+			//m_allEdgeMatches = m_dt2DE.m_allEdgeMatches;
+			m_imgSize = m_dt2DP.m_allKeyPoints.size();
 		}
 
-		{
-			std::string klPath = _path + "/KeyLines.txt";
-			std::ifstream klf(klPath);
-			std::string header = "";
-			int lineSize = 0;
-			int imgId = 0;
-			klf >> header;
-			klf >> header >> m_imgSize;
-			m_allKeyLines.resize(m_imgSize);
-			klf >> header;
-			for (int i = 0; i < m_imgSize; ++i) {
-				klf >> imgId;
-				klf >> lineSize;
-				m_allKeyLines[i].resize(lineSize);
-				for (int j = 0; j < lineSize; ++j) {
-					klf >> m_allKeyLines[i][j][0] >> m_allKeyLines[i][j][1] >> m_allKeyLines[i][j][2] >> m_allKeyLines[i][j][3];
-				}
-			}
-			klf.close();
-		}
-		{
-			std::string mPath = _path + "/LineMatches.txt";
-			std::ifstream mf(mPath);
-			std::string header = "";
-			int framePair = 0, frameId1, frameId2, matchSize = 0, mId1, mId2;
-			mf >> header;
-			mf >> header >> framePair;
-			mf >> header;
-			uint64_t pairId = 0;
-			for (int i = 0; i < framePair; ++i) {
-				mf >> frameId1 >> frameId2 >> matchSize;
-				pairId = imagePair2Int64(frameId1, frameId2);
-				m_allLineMatches[pairId].resize(matchSize);
-				m_allKLImgPairs[frameId1].emplace_back(frameId2, pairId);
-				for (int j = 0; j < matchSize; ++j) {
-					mf >> m_allLineMatches[pairId][j].first >> m_allLineMatches[pairId][j].second;
-				}
-			}
-			mf.close();
-		}
+		//if(false)
+		//{
+		//	std::string kpPath = _path + "/KeyPoints.txt";
+		//	std::ifstream kpf(kpPath);
+		//	std::string header = "";
+		//	int pointSize = 0;
+		//	int imgId = 0;
+		//	kpf >> header;
+		//	kpf >> header >> m_imgSize;
+		//	m_allKeyPoints.resize(m_imgSize);
+		//	kpf >> header;
+		//	float x, y;
+		//	for (int i = 0; i < m_imgSize; ++i) {
+		//		kpf >> imgId;
+		//		kpf >> pointSize;
+		//		m_allKeyPoints[i].resize(pointSize);
+		//		for (int j = 0; j < pointSize; ++j) {
+		//			kpf >>x >> y;
+		//			m_allKeyPoints[i][j].x = x;
+		//			m_allKeyPoints[i][j].y = y;
+		//		}
+		//	}
+		//	kpf.close();
+		//}
+		//if (false)
+		//{
+		//	std::string mPath = _path + "/Matches.txt";
+		//	std::ifstream mf(mPath);
+		//	std::string header = "";
+		//	int framePair = 0, frameId1, frameId2, matchSize = 0, mId1, mId2;
+		//	mf >> header;
+		//	mf >> header >> framePair;
+		//	mf >> header;
+		//	uint64_t pairId = 0;
+		//	for (int i = 0; i < framePair; ++i) {
+		//		mf >> frameId1 >> frameId2 >> matchSize;
+		//		pairId = imagePair2Int64(frameId1, frameId2);
+		//		m_allPointMatches[pairId].resize(matchSize);
+		//		m_allKPImgPairs[frameId1].emplace_back(frameId2, pairId);
+		//		for (int j = 0; j < matchSize; ++j) {
+		//			mf >> m_allPointMatches[pairId][j].first >> m_allPointMatches[pairId][j].second;
+		//		}
+		//	}
+		//	mf.close();
+		//}
 
-		{
-			std::string egPath = _path + "/EdgePoints.txt";
-			std::ifstream egf(egPath);
-			std::string header = "";
-			int edgeSize = 0;
-			int imgId = 0;
-			egf >> header;
-			egf >> header >> m_imgSize;
-			m_allEdgePoints.resize(m_imgSize);
-			egf >> header;
-			float x, y;
-			for (int i = 0; i < m_imgSize; ++i) {
-				egf >> imgId;
-				egf >> edgeSize;
-				m_allEdgePoints[i].resize(edgeSize);
-				for (int j = 0; j < edgeSize; ++j) {
-					egf >> x >> y;
-					m_allEdgePoints[i][j].x = x;
-					m_allEdgePoints[i][j].y = y;
-				}
-			}
-			egf.close();
-		}
-		{
-			std::string egmPath = _path + "/EdgeMatches.txt";
-			std::ifstream egmf(egmPath);
-			std::string header = "";
-			int framePair = 0, frameId1, frameId2, edgeMatchSize = 0, mId1, mId2;
-			egmf >> header;
-			egmf >> header >> framePair;
-			egmf >> header;
-			uint64_t pairId = 0;
-			for (int i = 0; i < framePair; ++i) {
-				egmf >> frameId1 >> frameId2 >> edgeMatchSize;
-				pairId = imagePair2Int64(frameId1, frameId2);
-				m_allEdgeMatches[pairId].resize(edgeMatchSize);
-				m_allEPImgPairs[frameId1].emplace_back(frameId2, pairId);
-				for (int j = 0; j < edgeMatchSize; ++j) {
-					egmf >> m_allEdgeMatches[pairId][j].first >> m_allEdgeMatches[pairId][j].second;
-				}
-			}
-			egmf.close();
-		}
+		//if (false)
+		//{
+		//	std::string klPath = _path + "/KeyLines.txt";
+		//	std::ifstream klf(klPath);
+		//	std::string header = "";
+		//	int lineSize = 0;
+		//	int imgId = 0;
+		//	klf >> header;
+		//	klf >> header >> m_imgSize;
+		//	m_allKeyLines.resize(m_imgSize);
+		//	klf >> header;
+		//	for (int i = 0; i < m_imgSize; ++i) {
+		//		klf >> imgId;
+		//		klf >> lineSize;
+		//		m_allKeyLines[i].resize(lineSize);
+		//		for (int j = 0; j < lineSize; ++j) {
+		//			klf >> m_allKeyLines[i][j][0] >> m_allKeyLines[i][j][1] >> m_allKeyLines[i][j][2] >> m_allKeyLines[i][j][3];
+		//		}
+		//	}
+		//	klf.close();
+		//}
+		//if (false)
+		//{
+		//	std::string mPath = _path + "/LineMatches.txt";
+		//	std::ifstream mf(mPath);
+		//	std::string header = "";
+		//	int framePair = 0, frameId1, frameId2, matchSize = 0, mId1, mId2;
+		//	mf >> header;
+		//	mf >> header >> framePair;
+		//	mf >> header;
+		//	uint64_t pairId = 0;
+		//	for (int i = 0; i < framePair; ++i) {
+		//		mf >> frameId1 >> frameId2 >> matchSize;
+		//		pairId = imagePair2Int64(frameId1, frameId2);
+		//		m_allLineMatches[pairId].resize(matchSize);
+		//		m_allKLImgPairs[frameId1].emplace_back(frameId2, pairId);
+		//		for (int j = 0; j < matchSize; ++j) {
+		//			mf >> m_allLineMatches[pairId][j].first >> m_allLineMatches[pairId][j].second;
+		//		}
+		//	}
+		//	mf.close();
+		//}
+
+		//if (false)
+		//{
+		//	std::string egPath = _path + "/EdgePoints.txt";
+		//	std::ifstream egf(egPath);
+		//	std::string header = "";
+		//	int edgeSize = 0;
+		//	int imgId = 0;
+		//	egf >> header;
+		//	egf >> header >> m_imgSize;
+		//	m_allEdgePoints.resize(m_imgSize);
+		//	egf >> header;
+		//	float x, y;
+		//	for (int i = 0; i < m_imgSize; ++i) {
+		//		egf >> imgId;
+		//		egf >> edgeSize;
+		//		m_allEdgePoints[i].resize(edgeSize);
+		//		for (int j = 0; j < edgeSize; ++j) {
+		//			egf >> x >> y;
+		//			m_allEdgePoints[i][j].x = x;
+		//			m_allEdgePoints[i][j].y = y;
+		//		}
+		//	}
+		//	egf.close();
+		//}
+		//if (false)
+		//{
+		//	std::string egmPath = _path + "/EdgeMatches.txt";
+		//	std::ifstream egmf(egmPath);
+		//	std::string header = "";
+		//	int framePair = 0, frameId1, frameId2, edgeMatchSize = 0, mId1, mId2;
+		//	egmf >> header;
+		//	egmf >> header >> framePair;
+		//	egmf >> header;
+		//	uint64_t pairId = 0;
+		//	for (int i = 0; i < framePair; ++i) {
+		//		egmf >> frameId1 >> frameId2 >> edgeMatchSize;
+		//		pairId = imagePair2Int64(frameId1, frameId2);
+		//		m_allEdgeMatches[pairId].resize(edgeMatchSize);
+		//		m_allEPImgPairs[frameId1].emplace_back(frameId2, pairId);
+		//		for (int j = 0; j < edgeMatchSize; ++j) {
+		//			egmf >> m_allEdgeMatches[pairId][j].first >> m_allEdgeMatches[pairId][j].second;
+		//		}
+		//	}
+		//	egmf.close();
+		//}
 
 		m_imgTmp1 = cv::imread(_path + "/images/0.png");
 		m_w = m_imgTmp1.cols;
@@ -195,17 +216,17 @@ namespace QT_LYJ
 			else if (key == 13) { // enter
 				if (m_status == SPOINT) {
 					m_status = SPOINTMATCH;
-					imgInds = m_allKPImgPairs[imgId1];
+					imgInds = m_dt2DP.m_allKPImgPairs[imgId1];
 					ind2 = 0;
 				}
 				else if (m_status == SLINE) {
 					m_status = SLINEMATCH;
-					imgInds = m_allKLImgPairs[imgId1];
+					imgInds = m_dt2DL.m_allKLImgPairs[imgId1];
 					ind2 = 0;
 				}
 				else if (m_status == SEDGE) {
 					m_status = SEDGEMATCH;
-					imgInds = m_allEPImgPairs[imgId1];
+					imgInds = m_dt2DE.m_allEPImgPairs[imgId1];
 					ind2 = 0;
 				}
 				pairSize = imgInds.size();
@@ -302,16 +323,16 @@ namespace QT_LYJ
 		}
 		_img = cv::imread(m_allImageNames[_imgId]);
 		if (_status == SPOINT || _status == SPOINTMATCH) {
-			drawKeyPoints(_img, m_allKeyPoints[_imgId], cv::Scalar(0, 255, 0));
-			return m_allKeyPoints[_imgId].size();
+			drawKeyPoints(_img, m_dt2DP.m_allKeyPoints[_imgId], cv::Scalar(0, 255, 0));
+			return m_dt2DP.m_allKeyPoints[_imgId].size();
 		}
 		else if (_status == SLINE || _status == SLINEMATCH) {
-			drawKeyLines(_img, m_allKeyLines[_imgId], cv::Scalar(0, 0, 255));
-			return m_allKeyLines[_imgId].size();
+			drawKeyLines(_img, m_dt2DL.m_allKeyLines[_imgId], cv::Scalar(0, 0, 255));
+			return m_dt2DL.m_allKeyLines[_imgId].size();
 		}
 		else if (_status == SEDGE || _status == SEDGEMATCH) {
-			drawKeyPoints(_img, m_allEdgePoints[_imgId], cv::Scalar(0, 0, 255));
-			return m_allEdgePoints[_imgId].size();
+			drawKeyPoints(_img, m_dt2DE.m_allEdgePoints[_imgId], cv::Scalar(0, 0, 255));
+			return m_dt2DE.m_allEdgePoints[_imgId].size();
 		}
 		return 0;
 	}
@@ -325,23 +346,23 @@ namespace QT_LYJ
 		if (_imgId1 < 0 || _imgId1 >= m_imgSize || imgId2 < 0 || imgId2 >= m_imgSize)
 			return 0;
 		if (m_status == SPOINTMATCH) {
-			const std::vector<Mth>& matches = m_allPointMatches[_imgId2.second];
-			const std::vector<cv::Point>& keyPoints1 = m_allKeyPoints[_imgId1];
-			const std::vector<cv::Point>& keyPoints2 = m_allKeyPoints[imgId2];
+			const std::vector<Mth>& matches = m_dt2DP.m_allPointMatches[_imgId2.second];
+			const std::vector<cv::Point>& keyPoints1 = m_dt2DP.m_allKeyPoints[_imgId1];
+			const std::vector<cv::Point>& keyPoints2 = m_dt2DP.m_allKeyPoints[imgId2];
 			drawKeyPointMatches(_img1, _img2, keyPoints1, keyPoints2, matches, _img2Show, cv::Scalar(255, 0, 0));
 			return matches.size();
 		}
 		else if (m_status == SLINEMATCH) {
-			const std::vector<Mth>& matches = m_allLineMatches[_imgId2.second];
-			const std::vector<cv::Vec4f>& keyLines1 = m_allKeyLines[_imgId1];
-			const std::vector<cv::Vec4f>& keyLines2 = m_allKeyLines[imgId2];
+			const std::vector<Mth>& matches = m_dt2DL.m_allLineMatches[_imgId2.second];
+			const std::vector<cv::Vec4f>& keyLines1 = m_dt2DL.m_allKeyLines[_imgId1];
+			const std::vector<cv::Vec4f>& keyLines2 = m_dt2DL.m_allKeyLines[imgId2];
 			drawKeyLineMatches(_img1, _img2, keyLines1, keyLines2, matches, _img2Show, cv::Scalar(255, 0, 0));
 			return matches.size();
 		}
 		else if (m_status == SEDGEMATCH) {
-			const std::vector<Mth>& matches = m_allEdgeMatches[_imgId2.second];
-			const std::vector<cv::Point>& edgePoints1 = m_allEdgePoints[_imgId1];
-			const std::vector<cv::Point>& edgePoints2 = m_allEdgePoints[imgId2];
+			const std::vector<Mth>& matches = m_dt2DE.m_allEdgeMatches[_imgId2.second];
+			const std::vector<cv::Point>& edgePoints1 = m_dt2DE.m_allEdgePoints[_imgId1];
+			const std::vector<cv::Point>& edgePoints2 = m_dt2DE.m_allEdgePoints[imgId2];
 			drawKeyPointMatches(_img1, _img2, edgePoints1, edgePoints2, matches, _img2Show, cv::Scalar(255, 0, 0));
 			return matches.size();
 		}

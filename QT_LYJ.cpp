@@ -158,4 +158,12 @@ QT_LYJ_API void debugWindows(int argc, char* argv[])
 	app.exec();
 }
 
+QT_LYJ_API void recordBin2D(const std::string& _dataHome2D, const Data2DPoint& _data2DPoint, const Data2DLine& _data2DLine, const Data2DEdge& _data2DEdge)
+{
+	std::string data2DPath = _dataHome2D + "FeaturesAndMatches.bin";
+	COMMON_LYJ::writeBinFile<const Data2DPoint&, const Data2DLine&, const Data2DEdge&>(data2DPath, _data2DPoint, _data2DLine, _data2DEdge);
+
+	return;
+}
+
 NSP_QT_LYJ_END

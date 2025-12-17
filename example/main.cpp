@@ -4,6 +4,7 @@
 #include <fstream>
 #include <cstdarg>
 #include <IO/BaseIO.h>
+#include <DataIO/DataWin2D.h>
 
 
 class MyStruct
@@ -91,13 +92,129 @@ void testReadBinFile()
     return;
 }
 
+void testRecord2DBin()
+{
+    using namespace QT_LYJ;
+
+    Data2DPoint data2DPoint;
+    std::vector<std::vector<cv::Point>>& allKPs = data2DPoint.m_allKeyPoints;
+    {
+        allKPs.resize(2);
+        allKPs[0].resize(3);
+        allKPs[0][0].x = 1;
+        allKPs[0][0].y = 1;
+        allKPs[0][1].x = 50;
+        allKPs[0][1].y = 50;
+        allKPs[0][2].x = 100;
+        allKPs[0][2].y = 50;
+        allKPs[1].resize(3);
+        allKPs[1][0].x = 1;
+        allKPs[1][0].y = 1;
+        allKPs[1][1].x = 52;
+        allKPs[1][1].y = 50;
+        allKPs[1][2].x = 100;
+        allKPs[1][2].y = 50;
+    }
+    std::map<int64_t, std::vector<Mth>>& allPMs = data2DPoint.m_allPointMatches;
+    {
+        uint64_t framePairId = imagePair2Int64(0, 1);
+        std::vector<Mth>& ms = allPMs[framePairId];
+        ms.resize(3);
+        for (int i = 0; i < 3; ++i) {
+            ms[i].first = i;
+            ms[i].second = i;
+        }
+    }
+    Data2DLine data2DLine;
+    std::vector<std::vector<cv::Vec4f>>& allKLs = data2DLine.m_allKeyLines;
+    {
+        allKLs.resize(2);
+        allKLs[0].resize(3);
+        allKLs[0][0][0] = 1;
+        allKLs[0][0][1] = 1;
+        allKLs[0][0][2] = 20;
+        allKLs[0][0][3] = 20;
+        allKLs[0][1][0] = 50;
+        allKLs[0][1][1] = 50;
+        allKLs[0][1][2] = 70;
+        allKLs[0][1][3] = 90;
+        allKLs[0][2][0] = 100;
+        allKLs[0][2][1] = 50;
+        allKLs[0][2][2] = 10;
+        allKLs[0][2][3] = 10;
+        allKLs[1].resize(3);
+        allKLs[1][0][0] = 1;
+        allKLs[1][0][1] = 1;
+        allKLs[1][0][2] = 20;
+        allKLs[1][0][3] = 20;
+        allKLs[1][1][0] = 52;
+        allKLs[1][1][1] = 50;
+        allKLs[1][1][2] = 70;
+        allKLs[1][1][3] = 90;
+        allKLs[1][2][0] = 100;
+        allKLs[1][2][1] = 50;
+        allKLs[1][2][2] = 10;
+        allKLs[1][2][3] = 10;
+    }
+    std::map<int64_t, std::vector<Mth>>& allLMs = data2DLine.m_allLineMatches;
+    {
+        uint64_t framePairId = imagePair2Int64(0, 1);
+        std::vector<Mth>& ms = allLMs[framePairId];
+        ms.resize(3);
+        for (int i = 0; i < 3; ++i) {
+            ms[i].first = i;
+            ms[i].second = i;
+        }
+    }
+    Data2DEdge data2DEdge;
+    std::vector<std::vector<cv::Point>>& allEPs = data2DEdge.m_allEdgePoints;
+    {
+        allEPs.resize(2);
+        allEPs[0].resize(3);
+        allEPs[0][0].x = 100;
+        allEPs[0][0].y = 100;
+        allEPs[0][1].x = 50;
+        allEPs[0][1].y = 50;
+        allEPs[0][2].x = 100;
+        allEPs[0][2].y = 50;
+        allEPs[1].resize(3);
+        allEPs[1][0].x = 1;
+        allEPs[1][0].y = 1;
+        allEPs[1][1].x = 10;
+        allEPs[1][1].y = 10;
+        allEPs[1][2].x = 80;
+        allEPs[1][2].y = 80;
+    }
+    std::map<int64_t, std::vector<Mth>>& allEMs = data2DEdge.m_allEdgeMatches;
+    {
+        uint64_t framePairId = imagePair2Int64(0, 1);
+        std::vector<Mth>& ms = allEMs[framePairId];
+        ms.resize(3);
+        for (int i = 0; i < 3; ++i) {
+            ms[i].first = i;
+            ms[i].second = i;
+        }
+    }
+
+
+    std::string dataHome = "D:/SLAM_LYJ_Packages/SLAM_LYJ_qt/data/dataBin1/";
+    std::string dataHome2D = dataHome + "2D/";
+    //std::string kpPath = dataHome2D + "KeyPointsAndMatches.bin";
+    //std::string klPath = dataHome2D + "KeyLinesAndMatches.bin";
+    //std::string epPath = dataHome2D + "EdgePointsAndMatches.bin";
+    //std::string data2DPath = dataHome2D + "FeaturesAndMatches.bin";
+    //COMMON_LYJ::writeBinFile<const Data2DPoint&, const Data2DLine&, const Data2DEdge&>(data2DPath, data2DPoint, data2DLine, data2DEdge);
+    recordBin2D(dataHome2D, data2DPoint, data2DLine, data2DEdge);
+}
+
 int main(int argc, char* argv[])
 {
     //testWriteBinFile();
     //testReadBinFile();
 
 	using namespace QT_LYJ;
-	debugWindows(argc, argv);
+    testRecord2DBin();
+    debugWindows(argc, argv);
 
 
 	return 0;

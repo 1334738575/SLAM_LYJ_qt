@@ -14,12 +14,10 @@
 #include <vector>
 #include <Eigen/Core>
 #include <Eigen/Eigen>
+#include "QT_LYJ_Defines.h"
 
 namespace QT_LYJ 
 {
-
-	int64_t imagePair2Int64(int _i1, int _i2);
-	std::pair<int, int> int642TwoImagePair(int64_t _pair);
 	void transform(const float* _Rwc, const float* _twc,
 		const float& _xc, const float& _yc, const float& _zc,
 		float& _xw, float& _yw, float& _zw);
