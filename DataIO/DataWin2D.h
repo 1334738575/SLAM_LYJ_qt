@@ -48,11 +48,13 @@ namespace QT_LYJ
 				const auto& matches = matchest.second;
 				matchSize = matches.size();
 				COMMON_LYJ::writeBin<const int&>(os, matchSize);
-				for (int i = 0; i < matchSize; ++i)
-				{
-					const auto& m = matches[i];
-					COMMON_LYJ::writeBinDatas<const int&, const int&>(os, m.first, m.second);
-				}
+				uint64_t sz = matchSize * 2;
+				COMMON_LYJ::writeBinDirect<int>(os, &(matches[0].first), sz);
+				//for (int i = 0; i < matchSize; ++i)
+				//{
+				//	const auto& m = matches[i];
+				//	COMMON_LYJ::writeBinDatas<const int&, const int&>(os, m.first, m.second);
+				//}
 			}
 
 		}
@@ -74,9 +76,11 @@ namespace QT_LYJ
 				COMMON_LYJ::readBin<int&>(is, matchSize);
 				allMatches[pairId].resize(matchSize);
 				allImgPairs[frameId1].emplace_back(frameId2, pairId);
-				for (int j = 0; j < matchSize; ++j) {
-					COMMON_LYJ::readBinDatas<int&, int&>(is, allMatches[pairId][j].first, allMatches[pairId][j].second);
-				}
+				uint64_t sz = matchSize * 2;
+				COMMON_LYJ::readBinDirect<int>(is, &(allMatches[pairId][0].first), sz);
+				//for (int j = 0; j < matchSize; ++j) {
+				//	COMMON_LYJ::readBinDatas<int&, int&>(is, allMatches[pairId][j].first, allMatches[pairId][j].second);
+				//}
 			}
 		}
 	};

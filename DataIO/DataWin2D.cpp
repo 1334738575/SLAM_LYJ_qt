@@ -31,13 +31,15 @@ namespace QT_LYJ
 				kpSize = kps.size();
 				COMMON_LYJ::writeBin<const int&>(os, imgId);
 				COMMON_LYJ::writeBin<const int&>(os, kpSize);
-				for (int j = 0; j < kpSize; ++j)
-				{
-					const cv::Point& kp = kps[j];
-					const int& x = kp.x;
-					const int& y = kp.y;
-					COMMON_LYJ::writeBinDatas<const int&, const int&>(os, x, y);
-				}
+				uint64_t sz = kpSize * 2;
+				COMMON_LYJ::writeBinDirect<int>(os, &(kps[0].x), sz);
+				//for (int j = 0; j < kpSize; ++j)
+				//{
+				//	const cv::Point& kp = kps[j];
+				//	const int& x = kp.x;
+				//	const int& y = kp.y;
+				//	COMMON_LYJ::writeBinDatas<const int&, const int&>(os, x, y);
+				//}
 			}
 		}
 
@@ -66,9 +68,11 @@ namespace QT_LYJ
 				COMMON_LYJ::readBin<int&>(is, imgId);
 				COMMON_LYJ::readBin<int&>(is, pointSize);
 				m_allKeyPoints[i].resize(pointSize);
-				for (int j = 0; j < pointSize; ++j) {
-					COMMON_LYJ::readBinDatas<int&, int&>(is, m_allKeyPoints[i][j].x, m_allKeyPoints[i][j].y);
-				}
+				uint64_t sz = pointSize * 2;
+				COMMON_LYJ::readBinDirect<int>(is, &(m_allKeyPoints[i][0].x), sz);
+				//for (int j = 0; j < pointSize; ++j) {
+				//	COMMON_LYJ::readBinDatas<int&, int&>(is, m_allKeyPoints[i][j].x, m_allKeyPoints[i][j].y);
+				//}
 			}
 		}
 		{
@@ -108,11 +112,13 @@ namespace QT_LYJ
 				lSize = ls.size();
 				COMMON_LYJ::writeBin<const int&>(os, imgId);
 				COMMON_LYJ::writeBin<const int&>(os, lSize);
-				for (int j = 0; j < lSize; ++j)
-				{
-					const cv::Vec4f& kp = ls[j];
-					COMMON_LYJ::writeBinDatas<const float&, const float&, const float&, const float&>(os, kp[0], kp[1], kp[2], kp[3]);
-				}
+				uint64_t sz = lSize * 4;
+				COMMON_LYJ::writeBinDirect<float>(os, &(ls[0][0]), sz);
+				//for (int j = 0; j < lSize; ++j)
+				//{
+				//	const cv::Vec4f& kp = ls[j];
+				//	COMMON_LYJ::writeBinDatas<const float&, const float&, const float&, const float&>(os, kp[0], kp[1], kp[2], kp[3]);
+				//}
 			}
 		}
 
@@ -141,9 +147,11 @@ namespace QT_LYJ
 				COMMON_LYJ::readBin<int&>(is, imgId);
 				COMMON_LYJ::readBin<int&>(is, lineSize);
 				m_allKeyLines[i].resize(lineSize);
-				for (int j = 0; j < lineSize; ++j) {
-					COMMON_LYJ::readBinDatas<float&, float&, float&, float&>(is, m_allKeyLines[i][j][0], m_allKeyLines[i][j][1], m_allKeyLines[i][j][2], m_allKeyLines[i][j][3]);
-				}
+				uint64_t sz = lineSize * 4;
+				COMMON_LYJ::readBinDirect<float>(is, &(m_allKeyLines[i][0][0]), sz);
+				//for (int j = 0; j < lineSize; ++j) {
+				//	COMMON_LYJ::readBinDatas<float&, float&, float&, float&>(is, m_allKeyLines[i][j][0], m_allKeyLines[i][j][1], m_allKeyLines[i][j][2], m_allKeyLines[i][j][3]);
+				//}
 			}
 		}
 		{
@@ -185,13 +193,15 @@ namespace QT_LYJ
 				kpSize = kps.size();
 				COMMON_LYJ::writeBin<const int&>(os, imgId);
 				COMMON_LYJ::writeBin<const int&>(os, kpSize);
-				for (int j = 0; j < kpSize; ++j)
-				{
-					const cv::Point& kp = kps[j];
-					const int& x = kp.x;
-					const int& y = kp.y;
-					COMMON_LYJ::writeBinDatas<const int&, const int&>(os, x, y);
-				}
+				uint64_t sz = kpSize * 2;
+				COMMON_LYJ::writeBinDirect<int>(os, &(kps[0].x), sz);
+				//for (int j = 0; j < kpSize; ++j)
+				//{
+				//	const cv::Point& kp = kps[j];
+				//	const int& x = kp.x;
+				//	const int& y = kp.y;
+				//	COMMON_LYJ::writeBinDatas<const int&, const int&>(os, x, y);
+				//}
 			}
 		}
 
@@ -220,9 +230,11 @@ namespace QT_LYJ
 				COMMON_LYJ::readBin<int&>(is, imgId);
 				COMMON_LYJ::readBin<int&>(is, pointSize);
 				m_allEdgePoints[i].resize(pointSize);
-				for (int j = 0; j < pointSize; ++j) {
-					COMMON_LYJ::readBinDatas<int&, int&>(is, m_allEdgePoints[i][j].x, m_allEdgePoints[i][j].y);
-				}
+				uint64_t sz = pointSize * 2;
+				COMMON_LYJ::readBinDirect<int>(is, &(m_allEdgePoints[i][0].x), sz);
+				//for (int j = 0; j < pointSize; ++j) {
+				//	COMMON_LYJ::readBinDatas<int&, int&>(is, m_allEdgePoints[i][j].x, m_allEdgePoints[i][j].y);
+				//}
 			}
 		}
 		{
