@@ -3,6 +3,10 @@ cmake_minimum_required(VERSION 3.20)
 # ################################setting##################################
 # cmake setting
 project(QT_LYJ)
+if(TARGET QT_LYJ)
+    message(STATUS "目标 QT_LYJ 已存在")
+    return()
+endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE "Release")
 
@@ -76,10 +80,14 @@ list(APPEND ${PROJECT_NAME}_LIBRARIES
  ${OpenCV_LIBS}
 )
 
-set(COMMON_LYJ_DIR "D:/SLAM_LYJ_Packages/SLAM_LYJ_COMMON/install/lib/cmake")
-find_package(COMMON_LYJ)
-list(APPEND ${PROJECT_NAME}_LIBRARIES COMMON_LYJ::COMMON_LYJ)
-list(APPEND ${PROJECT_NAME}_BINARY_DIRS "${COMMON_LYJ_DIR}/../../bin;")
+if(TARGET COMMON_LYJ)
+    list(APPEND ${PROJECT_NAME}_LIBRARIES COMMON_LYJ)
+else()
+    set(COMMON_LYJ_DIR "D:/SLAM_LYJ_Packages/SLAM_LYJ_COMMON/install/lib/cmake")
+    find_package(COMMON_LYJ)
+    list(APPEND ${PROJECT_NAME}_LIBRARIES COMMON_LYJ::COMMON_LYJ)
+    list(APPEND ${PROJECT_NAME}_BINARY_DIRS "${COMMON_LYJ_DIR}/../../bin;")
+endif()
 
 list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/testLyj/GLFW/glfw-3.4.bin.WIN64/lib-vc2022;")
 list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/Glew/bin/Release/x64;")
