@@ -2,6 +2,7 @@
 
 namespace QT_LYJ
 {
+	using namespace COMMON_LYJ;
 	WindowsMatch2D::WindowsMatch2D(std::function<void(const std::string&)> _printFunc)
 		:m_printFunc(_printFunc)
 	{}
@@ -11,8 +12,9 @@ namespace QT_LYJ
 	void WindowsMatch2D::loadModel(const std::string& _path)
 	{
 		{
-			std::string data2DPath = _path + "/FeaturesAndMatches.bin";
-			COMMON_LYJ::readBinFile<Data2DPoint, Data2DLine, Data2DEdge>(data2DPath, m_dt2DP, m_dt2DL, m_dt2DE);
+			COMMON_LYJ::readBin2D(_path, m_dt2DP, m_dt2DL, m_dt2DE);
+			//std::string data2DPath = _path + "/FeaturesAndMatches.bin";
+			//COMMON_LYJ::readBinFile<Data2DPoint, Data2DLine, Data2DEdge>(data2DPath, m_dt2DP, m_dt2DL, m_dt2DE);
 			//m_allKeyPoints = m_dt2DP.m_allKeyPoints;
 			//m_allKPImgPairs = m_dt2DP.m_allKPImgPairs;
 			//m_allPointMatches = m_dt2DP.m_allPointMatches;

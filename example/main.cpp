@@ -4,7 +4,8 @@
 #include <fstream>
 #include <cstdarg>
 #include <IO/BaseIO.h>
-#include <DataIO/DataWin2D.h>
+#include <IO/DataWin2D.h>
+#include <common/CommonAlgorithm.h>
 
 
 class MyStruct
@@ -94,7 +95,7 @@ void testReadBinFile()
 
 void testRecord2DBin()
 {
-    using namespace QT_LYJ;
+    using namespace COMMON_LYJ;
 
     Data2DPoint data2DPoint;
     std::vector<std::vector<cv::Point>>& allKPs = data2DPoint.m_allKeyPoints;
@@ -117,7 +118,7 @@ void testRecord2DBin()
     }
     std::map<int64_t, std::vector<Mth>>& allPMs = data2DPoint.m_allPointMatches;
     {
-        uint64_t framePairId = imagePair2Int64(0, 1);
+        uint64_t framePairId = SLAM_LYJ::SLAM_LYJ_MATH::imagePair2Int64(0, 1);
         std::vector<Mth>& ms = allPMs[framePairId];
         ms.resize(3);
         for (int i = 0; i < 3; ++i) {
@@ -158,7 +159,7 @@ void testRecord2DBin()
     }
     std::map<int64_t, std::vector<Mth>>& allLMs = data2DLine.m_allLineMatches;
     {
-        uint64_t framePairId = imagePair2Int64(0, 1);
+        uint64_t framePairId = SLAM_LYJ::SLAM_LYJ_MATH::imagePair2Int64(0, 1);
         std::vector<Mth>& ms = allLMs[framePairId];
         ms.resize(3);
         for (int i = 0; i < 3; ++i) {
@@ -187,7 +188,7 @@ void testRecord2DBin()
     }
     std::map<int64_t, std::vector<Mth>>& allEMs = data2DEdge.m_allEdgeMatches;
     {
-        uint64_t framePairId = imagePair2Int64(0, 1);
+        uint64_t framePairId = SLAM_LYJ::SLAM_LYJ_MATH::imagePair2Int64(0, 1);
         std::vector<Mth>& ms = allEMs[framePairId];
         ms.resize(3);
         for (int i = 0; i < 3; ++i) {

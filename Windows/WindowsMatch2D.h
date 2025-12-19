@@ -5,10 +5,11 @@
 //#include <opencv2/line_descriptor/descriptor.hpp>
 //#include <opencv2/features2d.hpp>
 //#include <opencv2/xfeatures2d.hpp>
-#include "DataIO/DataWin2D.h"
+#include <IO/DataWin2D.h>
 
 namespace QT_LYJ
 {
+	using namespace COMMON_LYJ;
 	class WindowsMatch2D
 	{
 	public:

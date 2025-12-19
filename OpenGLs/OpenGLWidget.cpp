@@ -3,6 +3,7 @@
 #include <GL/glu.h>      // OpenGL Utility Library
 #include <QMatrix4x4>
 #include <iostream>
+#include <common/CommonAlgorithm.h>
 
 namespace QT_LYJ {
 
@@ -211,7 +212,7 @@ namespace QT_LYJ {
 		std::pair<int, int> fIds;
 		for (const auto& crs : corrs) {
 			const auto& ind = crs.first;
-			fIds = int642TwoImagePair(ind);
+			fIds = SLAM_LYJ::SLAM_LYJ_MATH::int642TwoImagePair(ind);
 			const auto& fId1 = fIds.first;
 			const auto& fId2 = fIds.second;
 			const auto& ms = crs.second;

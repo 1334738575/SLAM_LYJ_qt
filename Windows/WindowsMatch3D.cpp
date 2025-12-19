@@ -1,4 +1,5 @@
 #include "WindowsMatch3D.h"
+#include <common/CommonAlgorithm.h>
 
 namespace QT_LYJ
 {
@@ -156,7 +157,7 @@ namespace QT_LYJ
 			mf >> header;
 			for (int ii = 0; ii < framePair; ++ii) {
 				mf >> frameId1 >> frameId2 >> matchSize;
-				id64 = imagePair2Int64(frameId1, frameId2);
+				id64 = SLAM_LYJ::SLAM_LYJ_MATH::imagePair2Int64(frameId1, frameId2);
 				allCorrs[i][id64].resize(matchSize);
 				for (int j = 0; j < matchSize; ++j)
 					mf >> allCorrs[i][id64][j](0) >> allCorrs[i][id64][j](1);
