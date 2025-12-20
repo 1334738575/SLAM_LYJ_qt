@@ -12,18 +12,11 @@ namespace QT_LYJ
 	void WindowsMatch2D::loadModel(const std::string& _path)
 	{
 		{
-			COMMON_LYJ::readBin2D(_path, m_dt2DP, m_dt2DL, m_dt2DE);
-			//std::string data2DPath = _path + "/FeaturesAndMatches.bin";
-			//COMMON_LYJ::readBinFile<Data2DPoint, Data2DLine, Data2DEdge>(data2DPath, m_dt2DP, m_dt2DL, m_dt2DE);
-			//m_allKeyPoints = m_dt2DP.m_allKeyPoints;
-			//m_allKPImgPairs = m_dt2DP.m_allKPImgPairs;
-			//m_allPointMatches = m_dt2DP.m_allPointMatches;
-			//m_allKeyLines = m_dt2DL.m_allKeyLines;
-			//m_allKLImgPairs = m_dt2DL.m_allKLImgPairs;
-			//m_allLineMatches = m_dt2DL.m_allLineMatches;
-			//m_allEdgePoints = m_dt2DE.m_allEdgePoints;
-			//m_allEPImgPairs = m_dt2DE.m_allEPImgPairs;
-			//m_allEdgeMatches = m_dt2DE.m_allEdgeMatches;
+			if (COMMON_LYJ::readBin2DWithComImg(_path, m_comImgs, m_dt2DP, m_dt2DL, m_dt2DE))
+				m_useComImg = true;
+			else if(!COMMON_LYJ::readBin2D(_path, m_dt2DP, m_dt2DL, m_dt2DE))
+				return;
+			//COMMON_LYJ::readBin2D(_path, m_dt2DP, m_dt2DL, m_dt2DE);
 			m_imgSize = m_dt2DP.m_allKeyPoints.size();
 		}
 
@@ -162,15 +155,19 @@ namespace QT_LYJ
 		//	egmf.close();
 		//}
 
-		m_imgTmp1 = cv::imread(_path + "/images/0.png");
+		if (m_useComImg)
+			m_comImgs[0].decompressCVMat(m_imgTmp1);
+		else {
+			m_imgTmp1 = cv::imread(_path + "/images/0.png");
+			for (int i = 0; i < m_imgSize; ++i)
+				m_allImageNames.push_back(_path + "/images/" + std::to_string(i) + ".png");
+		}
 		m_w = m_imgTmp1.cols;
 		m_h = m_imgTmp1.rows;
 		m_rect1 = cv::Rect(0, 0, m_w, m_h);
 		m_rect2 = cv::Rect(m_w, 0, m_w, m_h);
 		m_imgTmp2 = cv::Mat(m_h, m_w, CV_8UC3);
 		m_m2Show = cv::Mat(m_h, 2 * m_w, CV_8UC3);
-		for(int i=0;i<m_imgSize;++i)
-			m_allImageNames.push_back(_path + "/images/" + std::to_string(i) + ".png");
 
 		show();
 		return;
@@ -323,7 +320,15 @@ namespace QT_LYJ
 			_img = cv::Mat::zeros(m_h, m_w, CV_8UC3);
 			return 0;
 		}
-		_img = cv::imread(m_allImageNames[_imgId]);
+		if (m_useComImg) {
+			m_comImgs[_imgId].decompressCVMat(_img);
+			if (_img.type() == CV_8UC1)
+				cv::cvtColor(_img, _img, cv::COLOR_GRAY2BGR);
+			else if(_img.type() != CV_8UC3)
+				_img = cv::Mat::zeros(m_h, m_w, CV_8UC3);
+		}
+		else
+			_img = cv::imread(m_allImageNames[_imgId]);
 		if (_status == SPOINT || _status == SPOINTMATCH) {
 			drawKeyPoints(_img, m_dt2DP.m_allKeyPoints[_imgId], cv::Scalar(0, 255, 0));
 			return m_dt2DP.m_allKeyPoints[_imgId].size();

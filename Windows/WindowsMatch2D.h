@@ -6,6 +6,7 @@
 //#include <opencv2/features2d.hpp>
 //#include <opencv2/xfeatures2d.hpp>
 #include <IO/DataWin2D.h>
+#include <common/CompressedImage.h>
 
 namespace QT_LYJ
 {
@@ -87,6 +88,8 @@ namespace QT_LYJ
 		//std::map<int64_t, std::vector<Mth>> m_allEdgeMatches;
 
 		std::vector<std::string> m_allImageNames;
+		std::vector<COMMON_LYJ::CompressedImage> m_comImgs;
+		bool m_useComImg = false;
 	};
 }
 
