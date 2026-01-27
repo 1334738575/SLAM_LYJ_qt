@@ -1,2 +1,4 @@
 build/
 Output/
+install/
+tmp/

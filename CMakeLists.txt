@@ -99,6 +99,7 @@ list(APPEND ${PROJECT_NAME}_BINARY_DIRS "E:/anaconda3/pkgs/icu-73.1-h6c2663c_0/L
 list(APPEND ${PROJECT_NAME}_BINARY_DIRS "E:/anaconda3/pkgs/zstd-1.5.5-hd43e919_2/Library/bin;")
 list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/flann/bin\;")
 list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/lz4/bin\;")
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/libjpeg/bin\;")
 
 # list(APPEND ${PROJECT_NAME}_BINARY_DIRS )
 include_directories(${${PROJECT_NAME}_INCLUDE_DIRS})
@@ -133,6 +134,7 @@ if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
         ARCHIVE_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
         RUNTIME_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
     )
+    target_compile_definitions(${PROJECT_NAME} PRIVATE SHADERPATH="${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 endif()
 
 # ################################example##################################

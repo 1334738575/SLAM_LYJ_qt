@@ -2,9 +2,6 @@
 #define WINDOWS_MATCH2D_H
 
 #include <opencv2/opencv.hpp>
-// #include <opencv2/line_descriptor/descriptor.hpp>
-// #include <opencv2/features2d.hpp>
-// #include <opencv2/xfeatures2d.hpp>
 #include <IO/DataWin2D.h>
 #include <common/CompressedImage.h>
 

@@ -210,6 +210,9 @@ void testRecord2DBin()
 
 int main(int argc, char* argv[])
 {
+    QT_LYJ::testQT(argc, argv);
+    return 0;
+
     //testWriteBinFile();
     //testReadBinFile();
 
