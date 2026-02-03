@@ -4,6 +4,10 @@
 #include <OpenGLs/OpenGLWidget.h>
 
 #include <IO/MeshIO.h>
+#include <base/CameraModule.h>
+#include <base/Pose.h>
+
+#include <CUDAInclude.h>
 
 #include "QT_LYJ.h"
 #include "OpenGLs/OpenGLTest.h"
@@ -233,6 +237,7 @@ static int testOpenGL()
 	return app.exec();
 }
 
+
 int testQT(int argc, char* argv[])
 {
 	// testButton();
@@ -256,6 +261,154 @@ QT_LYJ_API void debugWindows(int argc, char* argv[])
 	WindowsMatch window;
 	window.show();
 	app.exec();
+}
+
+
+
+class OpenGLWindowTs : public QDialog
+{
+public:
+	OpenGLWindowTs(int _w = 800, int _h = 600, std::string _title = "OpenGL Window Ts", QWidget* parent = nullptr) : QDialog(parent)
+	{
+		setWindowTitle(QString::fromStdString(_title));
+		setFixedSize(_w, _h);
+
+		openGLWidgetTs_ = new MyOpenGLWidgetTs(this);
+		layout_ = new QVBoxLayout(this);
+		layout_->addWidget(openGLWidgetTs_);
+	}
+
+	void changeMesh(float* _vtcs, unsigned long long _vSz, unsigned int* _inds, unsigned long long _iSz,
+		const std::vector<SLAM_LYJ::Pose3D>& _Tcws,
+		const std::vector<SLAM_LYJ::PinholeCamera>& _cams,
+		const std::vector<COMMON_LYJ::CompressedImage>& _comImgs,
+		const std::vector<SLAM_LYJ::SLAM_LYJ_MATH::BitFlagVec>& _pValids)
+	{
+		openGLWidgetTs_->setVertices(_vtcs, _vSz);
+		openGLWidgetTs_->setIndices(_inds, _iSz);
+		openGLWidgetTs_->setData(_Tcws, _cams, _comImgs, _pValids);
+	}
+
+private:
+	MyOpenGLWidgetTs* openGLWidgetTs_ = nullptr;
+	QVBoxLayout* layout_ = nullptr;
+};
+QT_LYJ_API int testTcws(int argc, char* argv[],
+	const SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh& _btm,
+	const std::vector<SLAM_LYJ::Pose3D>& _Tcws, const std::vector<SLAM_LYJ::PinholeCamera>& _cams, const std::vector<COMMON_LYJ::CompressedImage>& _comImgs)
+{
+	SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btm = _btm;
+	std::vector<Eigen::Vector3f> vertexs = btm.getVertexs();
+	std::vector<SLAM_LYJ::SLAM_LYJ_MATH::BaseTriFace> fs = btm.getFaces();
+	btm.enableFCenters();
+	btm.calculateFCenters();
+	btm.enableFNormals();
+	btm.calculateFNormals();
+	int sz = _Tcws.size();
+	const auto& cam = _cams[0];
+	int w = cam.wide();
+	int h = cam.height();
+	std::vector<float> ccc{ static_cast<float>(cam.fx()), static_cast<float>(cam.fy()), static_cast<float>(cam.cx()), static_cast<float>(cam.cy()) };
+
+	float* Pws = vertexs[0].data();
+	unsigned int PSize = btm.getVn();
+	float* centers = btm.getFCenters()[0].data();
+	float* fNormals = btm.getFNormals()[0].data();
+	unsigned int* faces = fs[0].vId_;
+	unsigned int fSize = btm.getFn();
+	float* camParams = ccc.data();
+	CUDA_LYJ::ProHandle proHandle = CUDA_LYJ::initProjector(Pws, PSize, centers, fNormals, faces, fSize, camParams, w, h);
+	CUDA_LYJ::ProjectorCache cache;
+	cache.init(PSize, fSize, w, h);
+
+	std::vector<SLAM_LYJ::SLAM_LYJ_MATH::BitFlagVec> pValids(sz);
+	for (int i = 0; i < sz; ++i)
+	{
+		pValids[i].assign(PSize, false);
+	}
+	for(int i=0;i<sz;++i)
+	{
+		const auto& pinCam = _cams[0];
+		const SLAM_LYJ::Pose3D& TcwP = _Tcws[i];
+		Eigen::Matrix<float, 3, 4> Tcw34;
+	    Tcw34.block(0, 0, 3, 3) = TcwP.getR().cast<float>();
+	    Tcw34.block(0, 3, 3, 1) = TcwP.gett().cast<float>();
+	    float* Tcw = Tcw34.data();
+
+	    cv::Mat depthsM(w, h, CV_32FC1);
+	    float* depths = (float*)depthsM.data;
+	    std::vector<char> allvisiblePIds(PSize, 0);
+	    std::vector<char> allvisibleFIds(fSize, 0);
+	    std::vector<unsigned int> fIdss(w * h, 0);
+	    unsigned int* fIds = fIdss.data();
+	    char* allVisiblePIds = allvisiblePIds.data();
+	    char* allVisibleFIds = allvisibleFIds.data();
+
+	    CUDA_LYJ::project(proHandle, cache, Tcw, depths, fIds, allVisiblePIds, allVisibleFIds, 0, FLT_MAX, 0.5, 0.01);
+
+		for (int j = 0; j < PSize; ++j)
+		{
+			if (allvisiblePIds[j] == 1)
+				pValids[i].setFlag(j, true);
+		}
+		//std::vector<Eigen::Vector3f> Pws;
+		//for (int j = 0; j < PSize; ++j)
+		//{
+		//	if (pValids[i][j])
+		//		Pws.push_back(vertexs[j]);
+		//}
+		//SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btmTmp;
+		//btmTmp.setVertexs(Pws);
+		//SLAM_LYJ::writePLYMesh("D:/tmp/pValid.ply", btmTmp);
+	 //   cv::Mat depthsMShow(w, h, CV_8UC1);
+	 //   depthsMShow.setTo(cv::Scalar(0));
+	 //   std::vector<Eigen::Vector3f> Pcs;
+	 //   Pcs.reserve(w * h);
+	 //   for (int ii = 0; ii < h; ++ii)
+	 //   {
+	 //       for (int j = 0; j < w; ++j)
+	 //       {
+	 //           float d = depths[ii * w + j];
+	 //           if (d == FLT_MAX)
+	 //           {
+	 //               depthsMShow.at<uchar>(ii, j) = 0;
+	 //               continue;
+	 //           }
+	 //           Eigen::Vector3d Pc;
+	 //           pinCam.image2World(j, ii, d, Pc);
+	 //           Pcs.push_back(Pc.cast<float>());
+	 //           depthsMShow.at<uchar>(ii, j) = d * 20 < 255 ? (char)(d * 20) : 255;
+	 //       }
+	 //   }
+		//cv::imwrite("D:/tmp/" + std::to_string(i) + ".png", depthsMShow);
+	 //   //cv::imshow("depth", depthsMShow);
+	 //   //cv::waitKey();
+		continue;
+	}
+
+	CUDA_LYJ::release(proHandle);
+
+
+	QApplication app(argc, argv);
+	QWidget window;
+	window.setWindowTitle("QT_LYJ");
+	QVBoxLayout* layout = new QVBoxLayout(&window);
+
+	QPushButton* button = new QPushButton("open ply");
+	layout->addWidget(button);
+	QObject::connect(button, &QPushButton::clicked, [&]()
+		{
+			OpenGLWindowTs* w = new OpenGLWindowTs(1600, 1200, "Show mesh or obj");
+			w->changeMesh(btm.getVertexs()[0].data(), btm.getVn(), btm.getFaces()[0].vId_, btm.getFn(), _Tcws, _cams, _comImgs, pValids);
+			w->show();
+		});
+
+	window.setLayout(layout);
+	window.resize(800, 600);
+	window.show();
+	app.exec();
+
+	return 0;
 }
 
 

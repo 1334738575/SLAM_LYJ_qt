@@ -105,6 +105,7 @@ void MyOpenGLWidget::initializeGL()
     // 初始化视图矩阵
     m_model.setToIdentity();
     m_view.lookAt(QVector3D(0, 0, -3), QVector3D(0, 0, 0), QVector3D(0, 1, 0));
+    m_viewInit = m_view;
     //QMatrix4x4 QMatrix4x4::lookAt(
     //    const QVector3D & eye,    // 摄像机位置
     //    const QVector3D & center, // 观察目标点
@@ -150,13 +151,14 @@ void MyOpenGLWidget::paintGL()
     m_program.bind();
     m_vao.bind();
 
-    //QMatrix4x4 invView = m_view.inverted();
-    m_model.setToIdentity();
-    m_model.rotate(m_detYRot, QVector3D(0.f, 1.0f, 0.0f));
-    m_model.rotate(m_detXRot, QVector3D(1.f, 0.0f, 0.0f));
-    m_model(0, 3) = -m_detX;
-    m_model(1, 3) = m_detY;
-    m_model(2, 3) = m_detZ;
+    QMatrix4x4 mTmp;
+    mTmp.setToIdentity();
+    mTmp.rotate(m_detYRot, QVector3D(0.f, 1.0f, 0.0f));
+    mTmp.rotate(m_detXRot, QVector3D(1.f, 0.0f, 0.0f));
+    mTmp(0, 3) = -m_detX;
+    mTmp(1, 3) = m_detY;
+    mTmp(2, 3) = m_detZ;
+    m_view = m_viewInit * mTmp;
 
     // 传递矩阵到Shader
     m_program.setUniformValue("model", m_model);
@@ -270,4 +272,211 @@ void MyOpenGLWidget::wheelEvent(QWheelEvent* event)
 {
 	m_detZ += event->delta() / 100.0f;
 	update();
+}
+
+
+
+
+
+
+
+MyOpenGLWidgetTs::MyOpenGLWidgetTs(QWidget* parent)
+    :MyOpenGLWidget(parent)
+{
+}
+MyOpenGLWidgetTs::~MyOpenGLWidgetTs()
+{
+}
+
+void MyOpenGLWidgetTs::setData(const std::vector<SLAM_LYJ::Pose3D>& _Tcws, const std::vector<SLAM_LYJ::PinholeCamera>& _cams, const std::vector<COMMON_LYJ::CompressedImage>& _comImgs, const std::vector<SLAM_LYJ::SLAM_LYJ_MATH::BitFlagVec>& _pValids)
+{
+    Tcws_ = _Tcws;
+    cams_ = _cams;
+    int sz = _Tcws.size();
+    comImgs_.resize(sz);
+    pValids_.resize(sz);
+    for (int i = 0; i < sz; ++i)
+    {
+        comImgs_[i] = const_cast<COMMON_LYJ::CompressedImage*>(&_comImgs[i]);
+        pValids_[i] = const_cast<SLAM_LYJ::SLAM_LYJ_MATH::BitFlagVec*>(&_pValids[i]);
+    }
+}
+void MyOpenGLWidgetTs::initializeGL()
+{
+    int sz = Tcws_.size();
+    initializeOpenGLFunctions();
+    glEnable(GL_DEPTH_TEST); // 开启深度测试
+
+    std::string sPath = SHADERPATH;
+    std::string vPath = sPath + "/vertex_shaderTs.vert";
+    std::string fPath = sPath + "/fragment_shader.frag";
+    QString qvpath = QString::fromStdString(vPath);
+    QString qfpath = QString::fromStdString(fPath);
+    // 初始化Shader
+    m_program.addShaderFromSourceFile(QOpenGLShader::Vertex, qvpath);
+    m_program.addShaderFromSourceFile(QOpenGLShader::Fragment, qfpath);
+    m_program.link();
+    m_program.bind();
+
+    //有VAO的话，VBO和EBO可以不绑定
+    m_vao.create();
+    m_vao.bind();
+
+    // 初始化顶点缓冲
+    m_vbo.create();
+    m_vbo.bind();
+    m_vbo.allocate(m_vertices, m_vSize * sizeof(float));
+
+    // 配置顶点属性
+    m_program.enableAttributeArray(0);
+    m_program.setAttributeBuffer(0, GL_FLOAT, 0, m_pointStep, m_vtxStep * sizeof(GLfloat));
+    // 3. 配置VAO/VBO，添加纹理坐标属性
+    m_program.enableAttributeArray(1);
+    m_program.setAttributeBuffer(1, GL_FLOAT, m_pointStep * sizeof(GLfloat), m_uvStep, m_vtxStep * sizeof(GLfloat));
+    m_program.setUniformValue("ourTexture", 0); // 告诉着色器采样器用单元0
+    QMatrix4x4 camK;
+    camK.setToIdentity();
+    camK(0, 0) = cams_[0].fx() / cams_[0].wide();
+    camK(1, 1) = cams_[0].fy() / cams_[0].height();
+    camK(0, 2) = cams_[0].cx() / cams_[0].wide();
+    camK(1, 2) = cams_[0].cy() / cams_[0].height();
+    m_program.setUniformValue("cam", camK);
+
+    //indexs
+    m_ebo.create();
+    m_ebo.bind();
+    m_ebo.allocate(m_indices, m_iSize * sizeof(unsigned int));
+
+    // 初始化视图矩阵
+    m_model.setToIdentity();
+    m_view.lookAt(QVector3D(0, 0, -3), QVector3D(0, 0, 0), QVector3D(0, 1, 0));
+    m_viewInit = m_view;
+
+    // 2. 加载纹理图片
+    textures_.resize(sz, 0);
+    glGenTextures(sz, textures_.data());
+    for (int i = 0; i < sz; ++i)
+    {
+        glBindTexture(GL_TEXTURE_2D, textures_[i]);
+
+        cv::Mat cvM;
+        comImgs_[i]->decompressCVMat(cvM);
+        QImage image;
+        cvMat3CToQImageRGB32(cvM, image);
+
+        QImage imgOpengl = image.convertToFormat(QImage::Format_RGBA8888).mirrored(false, true);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, imgOpengl.width(), imgOpengl.height(),
+            0, GL_RGBA, GL_UNSIGNED_BYTE, imgOpengl.bits());
+        glGenerateMipmap(GL_TEXTURE_2D);
+        // 7. 设置纹理采样参数（关键！否则纹理全黑）
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    }
+    glGenTextures(1, &m_textureIDDefault);
+    glBindTexture(GL_TEXTURE_2D, m_textureIDDefault);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_textureDefault.width(), m_textureDefault.height(),
+        0, GL_RGBA, GL_UNSIGNED_BYTE, m_textureDefault.bits());
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+
+    m_vao.release();
+    m_program.release();
+}
+void MyOpenGLWidgetTs::paintGL()
+{
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    m_program.bind();
+    m_vao.bind();
+
+    QMatrix4x4 mTmp;
+    mTmp.setToIdentity();
+    mTmp.rotate(m_detYRot, QVector3D(0.f, 1.0f, 0.0f));
+    mTmp.rotate(m_detXRot, QVector3D(1.f, 0.0f, 0.0f));
+    mTmp(0, 3) = -m_detX;
+    mTmp(1, 3) = m_detY;
+    mTmp(2, 3) = m_detZ;
+    m_view = m_viewInit * mTmp;
+    SLAM_LYJ::Pose3D T = Tcws_[curId_];
+    for (int i = 0; i < 3; ++i)
+    {
+        for (int j = 0; j < 3; ++j)
+        {
+            m_model(i, j) = T.getR()(i, j);
+        }
+        m_model(i, 3) = T.gett()(i);
+    }
+
+    // 传递矩阵到Shader
+    m_program.setUniformValue("model", m_model);
+    m_program.setUniformValue("view", m_view);
+    m_program.setUniformValue("projection", m_projection);
+    // 2. 创建并初始化UBO
+    int pVSz = pValids_[curId_]->size();
+    for (int i = 0; i < pVSz; ++i)
+    {
+        if((*pValids_[curId_])[i])
+            m_vertices[i * m_vtxStep + 3] = 1;
+        else
+            m_vertices[i * m_vtxStep + 3] = -1;
+    }
+    m_vbo.write(0, m_vertices, m_vSize * sizeof(float));
+
+
+    glActiveTexture(GL_TEXTURE0); // 激活纹理单元0（默认）
+    if (m_bDrawTexture)
+        glBindTexture(GL_TEXTURE_2D, textures_[curId_]);
+    else
+        glBindTexture(GL_TEXTURE_2D, m_textureIDDefault);
+    // 绘制立方体线框
+    if (m_bDrawVertices)
+    {
+        glPointSize(10.0f);
+        glDrawArrays(GL_POINTS, 0, m_vSize / m_vtxStep);
+    }
+    if (m_bDrawFaces)
+        glDrawElements(GL_TRIANGLES, GLsizei(m_iSize), GL_UNSIGNED_INT, 0);
+    //glDrawElements(GL_QUADS, 24, GL_UNSIGNED_INT, 0);
+    //glDrawArrays(GL_LINES, 0, 8);
+    //glDrawArrays(GL_LINE_LOOP, 0, 4);
+    //glDrawArrays(GL_LINE_LOOP, 4, 4);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    m_vao.release();
+    m_program.release();
+}
+void MyOpenGLWidgetTs::keyPressEvent(QKeyEvent* event)
+{
+    switch (event->key())
+    {
+    case Qt::Key_V:
+        m_bDrawVertices = !m_bDrawVertices;
+        break;
+    case Qt::Key_F:
+        m_bDrawFaces = !m_bDrawFaces;
+        break;
+    case Qt::Key_T:
+        m_bDrawTexture = !m_bDrawTexture;
+        break;
+    case Qt::Key_Right :
+        curId_ = (curId_ + 1) >= Tcws_.size() ? 0 : (curId_ + 1);
+        //std::cout << curId_ << std::endl;
+        break;
+    case Qt::Key_Left:
+        curId_ = (curId_ - 1) < 0 ? (Tcws_.size() - 1) : (curId_ - 1);
+        //std::cout << curId_ << std::endl;
+        break;
+    default:
+        break;
+    }
+    QOpenGLWidget::keyPressEvent(event);
+    update();
 }

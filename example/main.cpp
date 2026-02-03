@@ -5,6 +5,9 @@
 #include <cstdarg>
 #include <IO/BaseIO.h>
 #include <IO/DataWin2D.h>
+#include <IO/ColmapIO.h>
+#include <IO/MeshIO.h>
+#include <IO/SimpleIO.h>
 #include <common/CommonAlgorithm.h>
 
 
@@ -210,6 +213,29 @@ void testRecord2DBin()
 
 int main(int argc, char* argv[])
 {
+    std::string btmPath = "D:/tmp/res_mesh.ply";
+    SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btm;
+    SLAM_LYJ::readPLYMesh(btmPath, btm);
+    int sz = 60;
+    std::vector<SLAM_LYJ::Pose3D> Tcws(sz);
+    std::vector<SLAM_LYJ::PinholeCamera> cams(sz);
+    std::vector<COMMON_LYJ::CompressedImage> comImgs(sz);
+    for (int i = 0; i < sz; ++i)
+    {
+        std::string imgPath = "D:/tmp/testImages/" + std::to_string(i + 11) + ".png";
+        cv::Mat m = cv::imread(imgPath);
+        comImgs[i].compressCVMat(m);
+        //std::string imgPath2 = "D:/tmp/" + std::to_string(i + 11) + ".jpg";
+        //cv::imwrite(imgPath2, m);
+        //comImgs[i].readJPG(imgPath2);
+        std::string TPath = "D:/tmp/testTcws/RT_" + std::to_string(i + 11) + ".txt";
+        COMMON_LYJ::readT34(TPath, Tcws[i]);
+        std::string camPath = "D:/tmp/testCam.txt";
+        COMMON_LYJ::readPinCamera(camPath, cams[i]);
+    }
+    QT_LYJ::testTcws(argc, argv, btm, Tcws, cams, comImgs);
+    return 0;
+
     QT_LYJ::testQT(argc, argv);
     return 0;
 
