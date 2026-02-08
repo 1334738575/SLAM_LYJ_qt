@@ -11,7 +11,7 @@
 
 #include "QT_LYJ.h"
 #include "OpenGLs/OpenGLTest.h"
-#include "OpenGLs/OpenGLWidget2.h"
+#include "OpenGLs/OpenGLWidgetMesh.h"
 #include "Windows/WindowsLyj.h"
 #include "Windows/WindowsMatch3D.h"
 #include "Windows/WindowsMatch.h"
@@ -68,7 +68,7 @@ public:
 		setWindowTitle(QString::fromStdString(_title));
 		setFixedSize(_w, _h);
 
-		openGLWidget_ = new MyOpenGLWidget(_w, _h, this);
+		openGLWidget_ = new OpenGLWidgetObj(_w, _h, this);
 		layout_ = new QVBoxLayout(this);
 		layout_->addWidget(openGLWidget_);
 	}
@@ -85,7 +85,7 @@ public:
 	}
 
 private:
-	MyOpenGLWidget* openGLWidget_ = nullptr;
+	OpenGLWidgetMeshAbr* openGLWidget_ = nullptr;
 	QVBoxLayout* layout_ = nullptr;
 };
 static void cvMat3CToQImageRGB32(const cv::Mat& mat, QImage& qimg) {

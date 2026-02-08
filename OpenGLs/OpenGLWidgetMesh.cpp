@@ -1,38 +1,11 @@
 // myopenglwidget.cpp
-#include "OpenGLWidget2.h"
+#include "OpenGLWidgetMesh.h"
 #include <QOpenGLFunctions_4_3_Core>
 #include <common/BaseTriMesh.h>
 #include <IO/MeshIO.h>
 
-const char* vertexShaderSourceShow =R"(        
-        #version 330 core
-        layout (location = 0) in vec2 aPos;
-        layout (location = 1) in vec2 aTexCoord;
-
-        out vec2 TexCoord;
-
-        void main()
-        {
-            gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);
-            TexCoord = aTexCoord;
-        }
-)";
-
-const char* fragmentShaderSourceShow = R"(
-        #version 330 core
-        in vec2 TexCoord;
-        out vec4 FragColor;
-
-        uniform sampler2D screenTexture;
-
-        void main()
-        {
-            FragColor = texture(screenTexture, TexCoord); 
-            //FragColor = vec4(1.f, 0.f, 1.f, 1.0f); 
-        }
-)";
-
-MyOpenGLWidget::MyOpenGLWidget(int _w, int _h, QWidget *parent)
+/********************************************OpenGLWidgetMeshAbr***************************************************/
+OpenGLWidgetMeshAbr::OpenGLWidgetMeshAbr(int _w, int _h, QWidget *parent)
     : m_w(_w), m_h(_h), QOpenGLWidget(parent)
 {
     // 设置焦点策略：可通过鼠标/键盘获取焦点
@@ -43,13 +16,6 @@ MyOpenGLWidget::MyOpenGLWidget(int _w, int _h, QWidget *parent)
     //connect(&m_timer, &QTimer::timeout, this, [this]()
     //        { update(); });
     //m_timer.start(16); // ~60FPS
-    m_vertices = m_verticesDefault.data();
-    m_vSize = m_verticesDefault.size();
-    m_indices = m_indicesDefault.data();
-    m_iSize = m_indicesDefault.size();
-    std::string sPath = SHADERPATH;    
-    m_vPath = sPath + "/vertex_shader.vert";
-    m_fPath = sPath + "/fragment_shader.frag";
     // 创建 100×100 的 RGBA 格式灰色图像（灰度值可自定义，0=黑，255=白）
     int grayValue = 128; // 中等灰度（0-255 可调）
     m_textureDefault = QImage(100, 100, QImage::Format_RGBA8888); // OpenGL 兼容格式
@@ -57,7 +23,7 @@ MyOpenGLWidget::MyOpenGLWidget(int _w, int _h, QWidget *parent)
     m_textureDefault.fill(QColor(grayValue, grayValue, grayValue, 255));
     m_texture = m_textureDefault;
 }
-MyOpenGLWidget::~MyOpenGLWidget()
+OpenGLWidgetMeshAbr::~OpenGLWidgetMeshAbr()
 {
     m_vao.destroy();
     m_vbo.destroy();
@@ -67,40 +33,116 @@ MyOpenGLWidget::~MyOpenGLWidget()
     m_screenVBO.destroy();
 }
 
-void MyOpenGLWidget::setVertices(const float* const _vtcs, unsigned long long _sz)
+
+void OpenGLWidgetMeshAbr::initializeGL()
 {
-    m_vSize = _sz * m_vtxStep;
-    m_verticesDefault.assign(m_vSize, -1);
-    m_vertices = m_verticesDefault.data();
-    for (int i = 0; i < _sz; ++i)
-    {
-        m_verticesDefault[m_vtxStep * i] = _vtcs[3 * i];
-        m_verticesDefault[m_vtxStep * i + 1] = _vtcs[3 * i + 1];
-        m_verticesDefault[m_vtxStep * i + 2] = _vtcs[3 * i + 2];
-    }
+    initializeOpenGLFunctions();
+    glEnable(GL_DEPTH_TEST); // 开启深度测试
+
+    initProgram(m_vPath, m_fPath);
+    initTexture();
+    glGenTextures(1, &m_textureIDDefault);
+    genTexture2D(m_textureDefault, m_textureIDDefault);
+
+    // 初始化视图矩阵
+    updateMatrix();
 }
-void MyOpenGLWidget::setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz)
+void OpenGLWidgetMeshAbr::paintGL()
 {
-    m_vSize = _sz * m_vtxStep;
-    m_verticesDefault.assign(m_vSize, 0);
-    m_vertices = m_verticesDefault.data();
-    for (int i = 0; i < _sz; ++i)
-    {
-        m_verticesDefault[m_vtxStep * i] = _vtcs[3 * i];
-        m_verticesDefault[m_vtxStep * i + 1] = _vtcs[3 * i + 1];
-        m_verticesDefault[m_vtxStep * i + 2] = _vtcs[3 * i + 2];
-        m_verticesDefault[m_vtxStep * i + 3] = _uvs[2 * i];
-        m_verticesDefault[m_vtxStep * i + 4] = _uvs[2 * i + 1];
-    }
-    m_texture = _img;
+    renderFBO();
+    renderWindows();
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
-void MyOpenGLWidget::setIndices(unsigned int* _inds, unsigned long long _sz)
+void OpenGLWidgetMeshAbr::resizeGL(int w, int h)
 {
-    m_indices = _inds;
-    m_iSize = _sz * 3;
+    m_w = w;
+    m_h = h;
+    m_projection.setToIdentity();
+    m_projection.perspective(60.0f, w / float(h), 0.1f, 100.0f);
 }
 
-void MyOpenGLWidget::initProgram(const std::string& _vertPath, const std::string& _fragPath)
+
+void OpenGLWidgetMeshAbr::mousePressEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton)
+    {
+        m_isPressLeft = true;
+        m_lastPos = event->pos();
+    }
+    else if (event->button() == Qt::RightButton)
+    {
+        m_isPressRight = true;
+        m_lastPos = event->pos();
+    }
+    else
+    {
+        m_isPressLeft = false;
+        m_isPressRight = false;
+    }
+}
+void OpenGLWidgetMeshAbr::mouseMoveEvent(QMouseEvent* event)
+{
+    if (m_isPressLeft)
+    {
+        float dx = event->x() - m_lastPos.x();
+        float dy = event->y() - m_lastPos.y();
+        m_detXRot -= dy;
+        m_detYRot += dx;
+        m_lastPos = event->pos();
+        update();
+    }
+    else if (m_isPressRight)
+    {
+        float dx = (event->x() - m_lastPos.x()) / 20.f;
+        float dy = (event->y() - m_lastPos.y()) / 20.f;
+        m_detY -= dy;
+        m_detX += dx;
+        m_lastPos = event->pos();
+        update();
+    }
+}
+void OpenGLWidgetMeshAbr::mouseReleaseEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton)
+    {
+        m_isPressLeft = false;
+        m_isPressRight = false;
+    }
+}
+void OpenGLWidgetMeshAbr::keyPressEvent(QKeyEvent* event)
+{
+    switch (event->key())
+    {
+    case Qt::Key_V:
+        m_bDrawVertices = !m_bDrawVertices;
+        break;
+    case Qt::Key_F:
+        m_bDrawFaces = !m_bDrawFaces;
+        break;
+    case Qt::Key_T:
+        m_bDrawTexture = !m_bDrawTexture;
+        break;
+        //case Qt::Key_Right:
+        //	m_detX += 0.1f;
+        //	break;
+    default:
+        break;
+    }
+    QOpenGLWidget::keyPressEvent(event);
+    update();
+}
+void OpenGLWidgetMeshAbr::keyReleaseEvent(QKeyEvent* event)
+{
+    QOpenGLWidget::keyReleaseEvent(event);
+}
+void OpenGLWidgetMeshAbr::wheelEvent(QWheelEvent* event)
+{
+    m_detZ += event->delta() / 100.0f;
+    update();
+}
+
+
+void OpenGLWidgetMeshAbr::initProgram(const std::string& _vertPath, const std::string& _fragPath)
 {
     QString qvpath = QString::fromStdString(_vertPath);
     QString qfpath = QString::fromStdString(_fragPath);
@@ -114,8 +156,10 @@ void MyOpenGLWidget::initProgram(const std::string& _vertPath, const std::string
     initFBO();
 
     m_program.release();
+
+    initJustRenderProgram();
 }
-void MyOpenGLWidget::initFBO()
+void OpenGLWidgetMeshAbr::initFBO()
 {
     int width = m_w;
     int height = m_h;
@@ -126,7 +170,7 @@ void MyOpenGLWidget::initFBO()
     }
     if (m_outColorId) glDeleteTextures(1, &m_outColorId);
     if (m_outFaceId) glDeleteTextures(1, &m_outFaceId);
-    if (m_outDepthId) glDeleteTextures(1, &m_outDepthId);
+    //if (m_outDepthId) glDeleteTextures(1, &m_outDepthId);
 
     // 1. 创建FBO
     m_fbo = new QOpenGLFramebufferObject(width, height, QOpenGLFramebufferObject::NoAttachment);
@@ -176,42 +220,32 @@ void MyOpenGLWidget::initFBO()
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
-void MyOpenGLWidget::initVAO()
+void OpenGLWidgetMeshAbr::renderWindows()
 {
-    //有VAO的话，VBO和EBO可以不绑定
-    m_vao.create();
-    m_vao.bind();
-
-    // 初始化顶点缓冲
-    m_vbo.create();
-    m_vbo.bind();
-    m_vbo.allocate(m_vertices, m_vSize * sizeof(float));
-
-    // 配置顶点属性
-    m_program.enableAttributeArray(0);
-    m_program.setAttributeBuffer(0, GL_FLOAT, 0, m_pointStep, m_vtxStep * sizeof(GLfloat));
-    // 3. 配置VAO/VBO，添加纹理坐标属性
-    m_program.enableAttributeArray(1);
-    m_program.setAttributeBuffer(1, GL_FLOAT, m_pointStep * sizeof(GLfloat), m_uvStep, m_vtxStep * sizeof(GLfloat));
-    m_program.setUniformValue("ourTexture", 0); // 告诉着色器采样器用单元0
-
-    //indexs
-    m_ebo.create();
-    m_ebo.bind();
-    m_ebo.allocate(m_indices, m_iSize * sizeof(unsigned int));
-
-    m_ebo.release();
-    m_vbo.release();
-    m_vao.release();
+    //glBindTexture(GL_TEXTURE_2D, 0);
+    // ========== 第二步：将FBO的颜色纹理绘制到窗口（新增核心逻辑） ==========
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // 窗口背景色（可选）
+    glClear(GL_COLOR_BUFFER_BIT); // 清除默认帧缓冲
+    glDisable(GL_DEPTH_TEST); // 绘制2D纹理无需深度测试
+    // 绑定全屏着色器，绘制FBO纹理
+    m_screenShader.bind();
+    m_screenVAO.bind();
+    m_screenVBO.bind();
+    m_screenEBO.bind();
+    // 绑定FBO的颜色纹理到纹理单元0，关联采样器
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_outColorId); // m_texColorId是FBO的颜色纹理ID
+    m_screenShader.setUniformValue("screenTexture", 0);
+    glDrawElements(GL_TRIANGLES, GLsizei(6), GL_UNSIGNED_INT, 0);
+    // 解绑全屏绘制资源
+    m_screenEBO.release();
+    m_screenVBO.release();
+    m_screenVAO.release();
+    m_screenShader.release();
 }
-void MyOpenGLWidget::initTexture()
-{
-    // 2. 加载纹理图片
-    glGenTextures(1, &m_textureID);
-    QImage imgOpengl = m_texture.convertToFormat(QImage::Format_RGBA8888).mirrored(false, true);
-    genTexture2D(imgOpengl, m_textureID);
-}
-void MyOpenGLWidget::genTexture2D(QImage& _qImg, GLuint& _texId)
+
+
+void OpenGLWidgetMeshAbr::genTexture2D(QImage& _qImg, GLuint& _texId)
 {
     glBindTexture(GL_TEXTURE_2D, _texId);
     // 加载纹理图片（Qt可使用QImage，OpenGL用stb_image）
@@ -225,14 +259,37 @@ void MyOpenGLWidget::genTexture2D(QImage& _qImg, GLuint& _texId)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
-void MyOpenGLWidget::initJustRenderProgram()
+void OpenGLWidgetMeshAbr::cvMat3CToQImageRGB32(const cv::Mat& mat, QImage& qimg) {
+    if (mat.empty() || mat.channels() != 3) {
+        return;
+    }
+
+    cv::Mat mmm;
+    cv::cvtColor(mat, mmm, cv::COLOR_BGR2BGRA);
+    // BGR → BGR0（Format_RGB32的小端布局是BGR0），无需转RGB
+    qimg = QImage(
+        reinterpret_cast<const uchar*>(mmm.data),
+        mmm.cols,
+        mmm.rows,
+        mmm.step,
+        QImage::Format_RGB32
+    );
+    qimg = qimg.copy();
+    return;
+}
+
+
+void OpenGLWidgetMeshAbr::initJustRenderProgram()
 {
     // ========== 新增：初始化全屏绘制的着色器和VAO/VBO ==========
 // 1. 编译全屏着色器（极简，仅采样纹理）
-    // 顶点着色器：全屏四边形坐标+纹理坐标
-    m_screenShader.addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSourceShow);
-    // 片段着色器：采样FBO颜色纹理
-    m_screenShader.addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSourceShow);
+    std::string sPath = SHADERPATH;
+    std::string vertPath = sPath + "/vShaderWindows.vert";
+    std::string fragPath = sPath + "/fShaderWindows.frag";
+    QString qvpath = QString::fromStdString(vertPath);
+    QString qfpath = QString::fromStdString(fragPath);
+    m_screenShader.addShaderFromSourceFile(QOpenGLShader::Vertex, qvpath);
+    m_screenShader.addShaderFromSourceFile(QOpenGLShader::Fragment, qfpath);
     if (!m_screenShader.link()) {
         return;
     }
@@ -277,15 +334,108 @@ void MyOpenGLWidget::initJustRenderProgram()
 
 
 
-void MyOpenGLWidget::initializeGL()
+
+
+
+/********************************************OpenGLWidgetPly***************************************************/
+OpenGLWidgetPly::OpenGLWidgetPly(int _w, int _h, QWidget* parent)
+    :OpenGLWidgetMeshAbr(_w, _h, parent)
 {
-    initializeOpenGLFunctions();
-    glEnable(GL_DEPTH_TEST); // 开启深度测试
+    m_vtxStep = 3;
+    m_pointStep = 3;
+    m_uvStep = 0;
+    std::string sPath = SHADERPATH;
+    m_vPath = sPath + "/vShaderMesh.vert";
+    m_fPath = sPath + "/fShaderMesh.frag";
 
-    initProgram(m_vPath, m_fPath);
-    initJustRenderProgram();
+    m_verticesDefault = std::vector<float>{
+    -0.5f, -0.5f, -0.5f,  
+     0.5f, -0.5f, -0.5f,  
+     0.5f,  0.5f, -0.5f,  
+    -0.5f,  0.5f, -0.5f,  
+    -0.5f, -0.5f,  0.5f,  
+     0.5f, -0.5f,  0.5f,  
+     0.5f,  0.5f,  0.5f,  
+    -0.5f,  0.5f,  0.5f
+    };
+    m_indicesDefault = std::vector<unsigned int>{
+        // 底面（后平面，-z）：拆分为 0→1→2 和 0→2→3
+        0, 1, 2,
+        0, 2, 3,
+        // 顶面（前平面，+z）：拆分为 4→5→6 和 4→6→7
+        4, 5, 6,
+        4, 6, 7,
+        // 左侧面（下平面，-y）：拆分为 0→1→5 和 0→5→4
+        0, 1, 5,
+        0, 5, 4,
+        // 右侧面（上平面，+y）：拆分为 2→3→7 和 2→7→6
+        2, 3, 7,
+        2, 7, 6,
+        // 前侧面（左平面，-x）：拆分为 0→3→7 和 0→7→4
+        0, 3, 7,
+        0, 7, 4,
+        // 后侧面（右平面，+x）：拆分为 1→2→6 和 1→6→5
+        1, 2, 6,
+        1, 6, 5
+    };
+    m_vertices = m_verticesDefault.data();
+    m_vSize = m_verticesDefault.size();
+    m_indices = m_indicesDefault.data();
+    m_iSize = m_indicesDefault.size();
+}
+OpenGLWidgetPly::~OpenGLWidgetPly()
+{
+}
 
-    // 初始化视图矩阵
+
+void OpenGLWidgetPly::setVertices(const float* const _vtcs, unsigned long long _sz)
+{
+    m_vSize = _sz * m_vtxStep;
+    m_verticesDefault.assign(m_vSize, -1);
+    m_vertices = m_verticesDefault.data();
+    for (int i = 0; i < _sz; ++i)
+    {
+        m_verticesDefault[m_vtxStep * i] = _vtcs[3 * i];
+        m_verticesDefault[m_vtxStep * i + 1] = _vtcs[3 * i + 1];
+        m_verticesDefault[m_vtxStep * i + 2] = _vtcs[3 * i + 2];
+    }
+}
+void OpenGLWidgetPly::setIndices(unsigned int* _inds, unsigned long long _sz)
+{
+    m_indices = _inds;
+    m_iSize = _sz * 3;
+}
+
+
+void OpenGLWidgetPly::initVAO()
+{
+    m_vao.create();
+    m_vao.bind();
+
+    // 初始化顶点缓冲
+    m_vbo.create();
+    m_vbo.bind();
+    m_vbo.allocate(m_vertices, m_vSize * sizeof(float));
+
+    // 配置顶点属性
+    m_program.enableAttributeArray(0);
+    m_program.setAttributeBuffer(0, GL_FLOAT, 0, m_pointStep, m_vtxStep * sizeof(GLfloat));
+
+    //indexs
+    m_ebo.create();
+    m_ebo.bind();
+    m_ebo.allocate(m_indices, m_iSize * sizeof(unsigned int));
+
+    m_ebo.release();
+    m_vbo.release();
+    m_vao.release();
+}
+void OpenGLWidgetPly::initTexture()
+{
+    return;
+}
+void OpenGLWidgetPly::updateMatrix()
+{
     m_model.setToIdentity();
     m_view.lookAt(QVector3D(0, 0, -3), QVector3D(0, 0, 0), QVector3D(0, 1, 0));
     m_viewInit = m_view;
@@ -294,26 +444,173 @@ void MyOpenGLWidget::initializeGL()
     //    const QVector3D & center, // 观察目标点
     //    const QVector3D & up     // 定义"上"方向的向量（通常为世界坐标系Y轴）
     //);
-
-    initTexture();
-    glGenTextures(1, &m_textureIDDefault);
-    genTexture2D(m_textureDefault, m_textureIDDefault);
 }
-void MyOpenGLWidget::paintGL()
+void OpenGLWidgetPly::renderFBO()
 {
-    // 1. 绑定FBO：渲染结果输出到自定义FBO的附着纹理，而非默认窗口帧缓冲
     m_fbo->bind();
-    //// 2. 清除FBO的颜色缓冲区（2个附着）和深度缓冲区
-    //GLenum clearBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_DEPTH_BUFFER_BIT };
-    //glClearNamedFramebufferfv(m_fbo->handle(), GL_COLOR, 0, GLfloat[4]{ 0.0f, 0.0f, 0.0f, 1.0f }); // 清除颜色附着0
-    //glClearNamedFramebufferfv(m_fbo->handle(), GL_COLOR, 1, GLfloat[4]{ 0.0f, 0.0f, 0.0f, 1.0f }); // 清除颜色附着1
-    //glClearNamedFramebufferfv(m_fbo->handle(), GL_DEPTH, 0, GLfloat[1]{ 1.0f });   
-    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);                // 清除深度缓冲区
-
-
+    glDisable(GL_BLEND); //输出8UI时，必须禁用
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     m_program.bind();
     m_vao.bind();
+    m_vbo.bind();
+    m_ebo.bind();
+
+    QMatrix4x4 mTmp;
+    mTmp.setToIdentity();
+    mTmp.rotate(m_detYRot, QVector3D(0.f, 1.0f, 0.0f));
+    mTmp.rotate(m_detXRot, QVector3D(1.f, 0.0f, 0.0f));
+    mTmp(0, 3) = -m_detX;
+    mTmp(1, 3) = m_detY;
+    mTmp(2, 3) = m_detZ;
+    m_view = m_viewInit * mTmp;
+
+    // 传递矩阵到Shader
+    m_program.setUniformValue("model", m_model);
+    m_program.setUniformValue("view", m_view);
+    m_program.setUniformValue("projection", m_projection);
+
+
+    if (m_bDrawVertices)
+    {
+        glPointSize(10.0f);
+        glDrawArrays(GL_POINTS, 0, m_vSize / m_vtxStep);
+    }
+    if (m_bDrawFaces && (m_iSize > 0))
+        glDrawElements(GL_TRIANGLES, GLsizei(m_iSize), GL_UNSIGNED_INT, 0);
+    //glDrawElements(GL_QUADS, 24, GL_UNSIGNED_INT, 0);
+    //glDrawArrays(GL_LINES, 0, 8);
+    //glDrawArrays(GL_LINE_LOOP, 0, 4);
+    //glDrawArrays(GL_LINE_LOOP, 4, 4);
+
+    m_vbo.release();
+    m_ebo.release();
+    m_vao.release();
+    m_program.release();
+    m_fbo->release();
+}
+
+
+
+
+/********************************************OpenGLWidgetObj***************************************************/
+OpenGLWidgetObj::OpenGLWidgetObj(int _w, int _h, QWidget* parent)
+    :OpenGLWidgetPly(_w, _h,  parent)
+{
+    m_vtxStep = 5;
+    m_pointStep = 3;
+    m_uvStep = 2;
+    std::string sPath = SHADERPATH;
+    m_vPath = sPath + "/vShaderObj.vert";
+    m_fPath = sPath + "/fShaderFBO.frag";
+
+    m_verticesDefault = std::vector<float>{
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+     0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 1.0f
+    };
+    m_indicesDefault = std::vector<unsigned int>{
+        // 底面（后平面，-z）：拆分为 0→1→2 和 0→2→3
+        0, 1, 2,
+        0, 2, 3,
+        // 顶面（前平面，+z）：拆分为 4→5→6 和 4→6→7
+        4, 5, 6,
+        4, 6, 7,
+        // 左侧面（下平面，-y）：拆分为 0→1→5 和 0→5→4
+        0, 1, 5,
+        0, 5, 4,
+        // 右侧面（上平面，+y）：拆分为 2→3→7 和 2→7→6
+        2, 3, 7,
+        2, 7, 6,
+        // 前侧面（左平面，-x）：拆分为 0→3→7 和 0→7→4
+        0, 3, 7,
+        0, 7, 4,
+        // 后侧面（右平面，+x）：拆分为 1→2→6 和 1→6→5
+        1, 2, 6,
+        1, 6, 5
+    };
+    m_vertices = m_verticesDefault.data();
+    m_vSize = m_verticesDefault.size();
+    m_indices = m_indicesDefault.data();
+    m_iSize = m_indicesDefault.size();
+}
+OpenGLWidgetObj::~OpenGLWidgetObj()
+{
+}
+
+
+void OpenGLWidgetObj::setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz)
+{
+    m_vSize = _sz * m_vtxStep;
+    m_verticesDefault.assign(m_vSize, 0);
+    m_vertices = m_verticesDefault.data();
+    for (int i = 0; i < _sz; ++i)
+    {
+        m_verticesDefault[m_vtxStep * i] = _vtcs[3 * i];
+        m_verticesDefault[m_vtxStep * i + 1] = _vtcs[3 * i + 1];
+        m_verticesDefault[m_vtxStep * i + 2] = _vtcs[3 * i + 2];
+        m_verticesDefault[m_vtxStep * i + 3] = _uvs[2 * i];
+        m_verticesDefault[m_vtxStep * i + 4] = _uvs[2 * i + 1];
+    }
+    m_texture = _img;
+}
+
+
+void OpenGLWidgetObj::initVAO()
+{
+    m_vao.create();
+    m_vao.bind();
+
+    // 初始化顶点缓冲
+    m_vbo.create();
+    m_vbo.bind();
+    m_vbo.allocate(m_vertices, m_vSize * sizeof(float));
+
+    // 配置顶点属性
+    m_program.enableAttributeArray(0);
+    m_program.setAttributeBuffer(0, GL_FLOAT, 0, m_pointStep, m_vtxStep * sizeof(GLfloat));
+    // 3. 配置VAO/VBO，添加纹理坐标属性
+    m_program.enableAttributeArray(1);
+    m_program.setAttributeBuffer(1, GL_FLOAT, m_pointStep * sizeof(GLfloat), m_uvStep, m_vtxStep * sizeof(GLfloat));
+    m_program.setUniformValue("ourTexture", 0); // 告诉着色器采样器用单元0
+
+    //indexs
+    m_ebo.create();
+    m_ebo.bind();
+    m_ebo.allocate(m_indices, m_iSize * sizeof(unsigned int));
+
+    m_ebo.release();
+    m_vbo.release();
+    m_vao.release();
+}
+void OpenGLWidgetObj::initTexture()
+{
+    // 2. 加载纹理图片
+    glGenTextures(1, &m_textureID);
+    QImage imgOpengl = m_texture.convertToFormat(QImage::Format_RGBA8888).mirrored(false, true);
+    genTexture2D(imgOpengl, m_textureID);
+}
+void OpenGLWidgetObj::renderFBO()
+{
+    m_fbo->bind();
+    glDisable(GL_BLEND); //输出8UI时，必须禁用
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    m_program.bind();
+    m_vao.bind();
+    m_vbo.bind();
+    m_ebo.bind();
 
     QMatrix4x4 mTmp;
     mTmp.setToIdentity();
@@ -331,131 +628,40 @@ void MyOpenGLWidget::paintGL()
 
 
     glActiveTexture(GL_TEXTURE0); // 激活纹理单元0（默认）
-    if(m_bDrawTexture)
+    if (m_bDrawTexture)
         glBindTexture(GL_TEXTURE_2D, m_textureID);
     else
         glBindTexture(GL_TEXTURE_2D, m_textureIDDefault);
-    // 绘制立方体线框
     if (m_bDrawVertices)
     {
         glPointSize(10.0f);
         glDrawArrays(GL_POINTS, 0, m_vSize / m_vtxStep);
     }
-    if(m_bDrawFaces)
+    if (m_bDrawFaces && (m_iSize > 0))
         glDrawElements(GL_TRIANGLES, GLsizei(m_iSize), GL_UNSIGNED_INT, 0);
-    //glDrawElements(GL_QUADS, 24, GL_UNSIGNED_INT, 0);
-    //glDrawArrays(GL_LINES, 0, 8);
-    //glDrawArrays(GL_LINE_LOOP, 0, 4);
-    //glDrawArrays(GL_LINE_LOOP, 4, 4);
 
-    glBindTexture(GL_TEXTURE_2D, 0);
-    m_fbo->release();
+    m_vbo.release();
+    m_ebo.release();
     m_vao.release();
     m_program.release();
-}
-void MyOpenGLWidget::resizeGL(int w, int h)
-{
-    m_w = w;
-    m_h = h;
-    m_projection.setToIdentity();
-    m_projection.perspective(60.0f, w / float(h), 0.1f, 100.0f);
-}
-
-
-void MyOpenGLWidget::mousePressEvent(QMouseEvent* event)
-{
-	if (event->button() == Qt::LeftButton)
-	{
-		m_isPressLeft = true;
-		m_lastPos = event->pos();
-	}
-	else if (event->button() == Qt::RightButton)
-	{
-		m_isPressRight = true;
-		m_lastPos = event->pos();
-	}
-	else
-	{
-		m_isPressLeft = false;
-		m_isPressRight = false;
-	}
-}
-void MyOpenGLWidget::mouseMoveEvent(QMouseEvent* event)
-{
-	if (m_isPressLeft)
-	{
-		float dx = event->x() - m_lastPos.x();
-		float dy = event->y() - m_lastPos.y();
-		m_detXRot -= dy;
-		m_detYRot += dx;
-		m_lastPos = event->pos();
-		update();
-	}
-	else if (m_isPressRight)
-	{
-		float dx = (event->x() - m_lastPos.x()) / 20.f;
-		float dy = (event->y() - m_lastPos.y()) / 20.f;
-		m_detY -= dy;
-		m_detX += dx;
-		m_lastPos = event->pos();
-		update();
-	}
-}
-void MyOpenGLWidget::mouseReleaseEvent(QMouseEvent* event)
-{
-	if (event->button() == Qt::LeftButton)
-	{
-		m_isPressLeft = false;
-		m_isPressRight = false;
-	}
-}
-void MyOpenGLWidget::keyPressEvent(QKeyEvent* event)
-{
-	switch (event->key())
-	{
-	case Qt::Key_V:
-		m_bDrawVertices = !m_bDrawVertices;
-		break;
-	case Qt::Key_F:
-		m_bDrawFaces = !m_bDrawFaces;
-		break;
-	case Qt::Key_T:
-		m_bDrawTexture = !m_bDrawTexture;
-		break;
-	//case Qt::Key_Right:
-	//	m_detX += 0.1f;
-	//	break;
-	default:
-		break;
-	}
-	QOpenGLWidget::keyPressEvent(event);
-	update();
-}
-void MyOpenGLWidget::keyReleaseEvent(QKeyEvent* event)
-{
-	QOpenGLWidget::keyReleaseEvent(event);
-}
-void MyOpenGLWidget::wheelEvent(QWheelEvent* event)
-{
-	m_detZ += event->delta() / 100.0f;
-	update();
+    m_fbo->release();
 }
 
 
 
 
 
-
-
+/********************************************MyOpenGLWidgetTs***************************************************/
 MyOpenGLWidgetTs::MyOpenGLWidgetTs(int _w, int _h, QWidget* parent)
-    :MyOpenGLWidget(_w, _h, parent)
+    :OpenGLWidgetObj(_w, _h, parent)
 {
     std::string sPath = SHADERPATH;
-    m_vPath = sPath + "/vertex_shaderTs.vert";
-    m_fPath = sPath + "/fragment_shader.frag";
+    m_vPath = sPath + "/vShaderTs.vert";
+    m_fPath = sPath + "/fShaderFBO.frag";
 }
 MyOpenGLWidgetTs::~MyOpenGLWidgetTs()
 {}
+
 
 void MyOpenGLWidgetTs::setData(const std::vector<SLAM_LYJ::Pose3D>& _Tcws, const std::vector<SLAM_LYJ::PinholeCamera>& _cams, const std::vector<COMMON_LYJ::CompressedImage>& _comImgs, const std::vector<SLAM_LYJ::SLAM_LYJ_MATH::BitFlagVec>& _pValids)
 {
@@ -470,6 +676,34 @@ void MyOpenGLWidgetTs::setData(const std::vector<SLAM_LYJ::Pose3D>& _Tcws, const
         pValids_[i] = const_cast<SLAM_LYJ::SLAM_LYJ_MATH::BitFlagVec*>(&_pValids[i]);
     }
 }
+
+
+void MyOpenGLWidgetTs::keyPressEvent(QKeyEvent* event)
+{
+    switch (event->key())
+    {
+    case Qt::Key_V:
+        m_bDrawVertices = !m_bDrawVertices;
+        break;
+    case Qt::Key_F:
+        m_bDrawFaces = !m_bDrawFaces;
+        break;
+    case Qt::Key_T:
+        m_bDrawTexture = !m_bDrawTexture;
+        break;
+    case Qt::Key_Right:
+        curId_ = (curId_ + 1) >= Tcws_.size() ? 0 : (curId_ + 1);
+        break;
+    case Qt::Key_Left:
+        curId_ = (curId_ - 1) < 0 ? (Tcws_.size() - 1) : (curId_ - 1);
+        break;
+    default:
+        break;
+    }
+    QOpenGLWidget::keyPressEvent(event);
+    update();
+}
+
 
 void MyOpenGLWidgetTs::initVAO()
 {
@@ -489,13 +723,6 @@ void MyOpenGLWidgetTs::initVAO()
     m_program.enableAttributeArray(1);
     m_program.setAttributeBuffer(1, GL_FLOAT, m_pointStep * sizeof(GLfloat), m_uvStep, m_vtxStep * sizeof(GLfloat));
     m_program.setUniformValue("ourTexture", 0); // 告诉着色器采样器用单元0, GL_TEXTURE0
-    QMatrix4x4 camK;
-    camK.setToIdentity();
-    camK(0, 0) = cams_[0].fx() / cams_[0].wide();
-    camK(1, 1) = cams_[0].fy() / cams_[0].height();
-    camK(0, 2) = cams_[0].cx() / cams_[0].wide();
-    camK(1, 2) = cams_[0].cy() / cams_[0].height();
-    m_program.setUniformValue("cam", camK);
 
     //indexs
     m_ebo.create();
@@ -520,26 +747,7 @@ void MyOpenGLWidgetTs::initTexture()
         genTexture2D(imgOpengl, textures_[i]);
     }
 }
-
-
-static void checkGLError(const char* location) {
-    GLenum err;
-    while ((err = glGetError()) != GL_NO_ERROR) {
-        std::cout << "OpenGL Error at " << location << ": " << err << std::endl;
-        // 常见错误码解释
-        switch (err) {
-        case GL_INVALID_ENUM: 
-            std::cout << "enum" << std::endl; break;
-        case GL_INVALID_VALUE: 
-            std::cout << "number" << std::endl; break;
-        case GL_INVALID_OPERATION: 
-            std::cout << "un" << std::endl; break;
-        case GL_INVALID_FRAMEBUFFER_OPERATION: 
-            std::cout << "no complete" << std::endl; break;
-        }
-    }
-}
-void MyOpenGLWidgetTs::paintGL()
+void MyOpenGLWidgetTs::renderFBO()
 {
     m_fbo->bind();
     glDisable(GL_BLEND); //输出8UI时，必须禁用
@@ -575,6 +783,13 @@ void MyOpenGLWidgetTs::paintGL()
     m_program.setUniformValue("model", m_model);
     m_program.setUniformValue("view", m_view);
     m_program.setUniformValue("projection", m_projection);
+    QMatrix4x4 camK;
+    camK.setToIdentity();
+    camK(0, 0) = cams_[0].fx() / cams_[0].wide();
+    camK(1, 1) = cams_[0].fy() / cams_[0].height();
+    camK(0, 2) = cams_[0].cx() / cams_[0].wide();
+    camK(1, 2) = cams_[0].cy() / cams_[0].height();
+    m_program.setUniformValue("cam", camK);
     // 2. 创建并初始化UBO
     int pVSz = pValids_[curId_]->size();
     for (int i = 0; i < pVSz; ++i)
@@ -671,12 +886,6 @@ void MyOpenGLWidgetTs::paintGL()
     //{
     //    std::vector<float> depthData(SCR_WIDTH * SCR_HEIGHT);
     //    glBindTexture(GL_TEXTURE_2D, m_outDepthId);
-    //    checkGLError("glBindTexture"); // 检测绑定错误
-    //    // 4. 先检查纹理是否真的是深度纹理（关键验证）
-    //    GLint internalFormat;
-    //    glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_INTERNAL_FORMAT, &internalFormat);
-    //    checkGLError("glGetTexParameteriv (internalFormat)");
-    //    std::cout << "深度纹理internalFormat: " << std::hex << internalFormat << std::dec << std::endl;
     //    // 正常应为 GL_DEPTH_COMPONENT32F (0x8CAC) 或 GL_DEPTH_COMPONENT24 (0x81A6)
     //    glGetTexImage(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GL_FLOAT, depthData.data());
     //    cv::Mat m(SCR_HEIGHT, SCR_WIDTH, CV_8UC1);
@@ -697,53 +906,5 @@ void MyOpenGLWidgetTs::paintGL()
     m_program.release();
     m_fbo->release();
     
-    //glBindTexture(GL_TEXTURE_2D, 0);
-    // ========== 第二步：将FBO的颜色纹理绘制到窗口（新增核心逻辑） ==========
-    //glBindFramebuffer(GL_FRAMEBUFFER, 0); // 显式绑定默认帧缓冲（可选，m_fbo->release已做）
-    glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // 窗口背景色（可选）
-    glClear(GL_COLOR_BUFFER_BIT); // 清除默认帧缓冲
-    glDisable(GL_DEPTH_TEST); // 绘制2D纹理无需深度测试
-    // 绑定全屏着色器，绘制FBO纹理
-    m_screenShader.bind();
-    m_screenVAO.bind();
-     m_screenVBO.bind();
-     m_screenEBO.bind();
-    // 绑定FBO的颜色纹理到纹理单元0，关联采样器
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_outColorId); // m_texColorId是FBO的颜色纹理ID
-    m_screenShader.setUniformValue("screenTexture", 0);
-    glDrawElements(GL_TRIANGLES, GLsizei(6), GL_UNSIGNED_INT, 0);
-    // 解绑全屏绘制资源
-     m_screenEBO.release();
-     m_screenVBO.release();
-    m_screenVAO.release();
-    m_screenShader.release();
-
-
-    glBindTexture(GL_TEXTURE_2D, 0);
 }
-void MyOpenGLWidgetTs::keyPressEvent(QKeyEvent* event)
-{
-    switch (event->key())
-    {
-    case Qt::Key_V:
-        m_bDrawVertices = !m_bDrawVertices;
-        break;
-    case Qt::Key_F:
-        m_bDrawFaces = !m_bDrawFaces;
-        break;
-    case Qt::Key_T:
-        m_bDrawTexture = !m_bDrawTexture;
-        break;
-    case Qt::Key_Right :
-        curId_ = (curId_ + 1) >= Tcws_.size() ? 0 : (curId_ + 1);
-        break;
-    case Qt::Key_Left:
-        curId_ = (curId_ - 1) < 0 ? (Tcws_.size() - 1) : (curId_ - 1);
-        break;
-    default:
-        break;
-    }
-    QOpenGLWidget::keyPressEvent(event);
-    update();
-}
+

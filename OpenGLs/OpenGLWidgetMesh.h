@@ -18,19 +18,19 @@
 
 #include <opencv2/opencv.hpp>
 #include <QOpenGLFunctions_4_3_Core>
-class MyOpenGLWidget : public QOpenGLWidget, protected QOpenGLFunctions_4_3_Core
+class OpenGLWidgetMeshAbr : public QOpenGLWidget, protected QOpenGLFunctions_4_3_Core
 {
     Q_OBJECT
 public:
-    explicit MyOpenGLWidget(int _w, int _h, QWidget *parent = nullptr);
-    ~MyOpenGLWidget();
+    explicit OpenGLWidgetMeshAbr(int _w, int _h, QWidget *parent = nullptr);
+    ~OpenGLWidgetMeshAbr();
 
     /// <summary>
     /// 设置顶点
     /// </summary>
     /// <param name="_vtcs"指针></param>
     /// <param name="_sz"顶点数></param>
-    virtual void setVertices(const float* const _vtcs, unsigned long long _sz);
+    virtual void setVertices(const float* const _vtcs, unsigned long long _sz)=0;
     /// <summary>
     /// 设置顶点及纹理
     /// </summary>
@@ -38,22 +38,15 @@ public:
     /// <param name="_uvs"></param>
     /// <param name="_img"></param>
     /// <param name="_sz"></param>
-    virtual void setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz);
+    virtual void setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz)=0;
     /// <summary>
     /// 设置面片
     /// </summary>
     /// <param name="_inds"指针></param>
     /// <param name="_sz"面片数></param>
-    virtual void setIndices(unsigned int* _inds, unsigned long long _sz);
+    virtual void setIndices(unsigned int* _inds, unsigned long long _sz)=0;
 
 protected:
-    void initProgram(const std::string& _vertPath, const std::string& _fragPath);
-    virtual void initFBO();
-    virtual void initVAO();
-    virtual void initTexture();
-    void genTexture2D(QImage& _qImg, GLuint& _texId);
-    void initJustRenderProgram();
-
     void initializeGL() override;
     void paintGL() override;
     void resizeGL(int w, int h) override;
@@ -64,6 +57,22 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
+
+protected:
+    void initProgram(const std::string& _vertPath, const std::string& _fragPath);
+    void initFBO();
+    virtual void initVAO() = 0;
+    virtual void initTexture() = 0;
+    virtual void updateMatrix() = 0;
+    virtual void renderFBO() = 0;
+    void renderWindows();
+
+
+    void genTexture2D(QImage& _qImg, GLuint& _texId);
+    void cvMat3CToQImageRGB32(const cv::Mat& mat, QImage& qimg);
+private:
+    void initJustRenderProgram();
+
 
 protected:
     int m_w = 0;
@@ -78,7 +87,7 @@ protected:
     QOpenGLFramebufferObject* m_fbo = nullptr;       // 自定义帧缓冲
     GLuint m_outColorId = 0;                            // 颜色纹理ID（GL_COLOR_ATTACHMENT0）
     GLuint m_outFaceId = 0;                             // 面片ID纹理ID（GL_COLOR_ATTACHMENT1）
-    GLuint m_outDepthId = 0;                            // 深度纹理ID
+    //GLuint m_outDepthId = 0;                            // 深度纹理ID
 
     //just render to show
     QOpenGLShaderProgram m_screenShader; // 全屏绘制着色器
@@ -92,9 +101,6 @@ protected:
     QMatrix4x4 m_model;
     //float m_angle = 0.0f;
     //QTimer m_timer;
-    int m_vtxStep = 5;
-    int m_pointStep = 3;
-    int m_uvStep = 2;
     QImage m_texture;
     GLuint m_textureID = 0;
     QImage m_textureDefault;
@@ -108,45 +114,6 @@ protected:
     int m_vSize = 0;
     unsigned int* m_indices = nullptr;
     int m_iSize = 0;
-    // 立方体顶点数据 (位置)
-    std::vector<float> m_verticesDefault{
-        //-0.5f, -0.5f, -0.5f,
-        //0.5f, -0.5f, -0.5f,
-        //0.5f, 0.5f, -0.5f,
-        //-0.5f, 0.5f, -0.5f,
-        //-0.5f, -0.5f, 0.5f,
-        //0.5f, -0.5f, 0.5f,
-        //0.5f, 0.5f, 0.5f,
-        //-0.5f, 0.5f, 0.5f 
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f
-    };
-    std::vector<unsigned int> m_indicesDefault{
-        // 底面（后平面，-z）：拆分为 0→1→2 和 0→2→3
-        0, 1, 2,
-        0, 2, 3,
-        // 顶面（前平面，+z）：拆分为 4→5→6 和 4→6→7
-        4, 5, 6,
-        4, 6, 7,
-        // 左侧面（下平面，-y）：拆分为 0→1→5 和 0→5→4
-        0, 1, 5,
-        0, 5, 4,
-        // 右侧面（上平面，+y）：拆分为 2→3→7 和 2→7→6
-        2, 3, 7,
-        2, 7, 6,
-        // 前侧面（左平面，-x）：拆分为 0→3→7 和 0→7→4
-        0, 3, 7,
-        0, 7, 4,
-        // 后侧面（右平面，+x）：拆分为 1→2→6 和 1→6→5
-        1, 2, 6,
-        1, 6, 5
-    };
 
 
     float m_detXRot = 0;              // 旋转角度x，绑定鼠标左键的横向
@@ -160,7 +127,49 @@ protected:
 };
 
 
-class MyOpenGLWidgetTs :public MyOpenGLWidget
+class OpenGLWidgetPly : public OpenGLWidgetMeshAbr
+{
+public:
+    explicit OpenGLWidgetPly(int _w, int _h, QWidget* parent = nullptr);
+    ~OpenGLWidgetPly();
+
+    void setVertices(const float* const _vtcs, unsigned long long _sz) override;
+    void setIndices(unsigned int* _inds, unsigned long long _sz) override;
+
+protected:
+
+    virtual void initVAO();
+    virtual void initTexture();
+    virtual void updateMatrix();
+    virtual void renderFBO();
+
+
+
+protected:
+    int m_vtxStep = 0;
+    int m_pointStep = 0;
+    int m_uvStep = 0;
+    // 立方体顶点数据 (位置)
+    std::vector<float> m_verticesDefault;
+    std::vector<unsigned int> m_indicesDefault;
+};
+
+class OpenGLWidgetObj : public OpenGLWidgetPly
+{
+public:
+    explicit OpenGLWidgetObj(int _w, int _h, QWidget* parent = nullptr);
+    ~OpenGLWidgetObj();
+
+    void setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz) override;
+
+protected:
+    virtual void initVAO();
+    virtual void initTexture();
+    virtual void renderFBO();
+
+};
+
+class MyOpenGLWidgetTs :public OpenGLWidgetObj
 {
 public:
     explicit MyOpenGLWidgetTs(int _w, int _h, QWidget* parent = nullptr);
@@ -171,34 +180,16 @@ public:
         const std::vector<COMMON_LYJ::CompressedImage>& _comImgs,
         const std::vector<SLAM_LYJ::SLAM_LYJ_MATH::BitFlagVec>& _pValids);
 
-    static void cvMat3CToQImageRGB32(const cv::Mat& mat, QImage& qimg) {
-        if (mat.empty() || mat.channels() != 3) {
-            return;
-        }
-
-        cv::Mat mmm;
-        cv::cvtColor(mat, mmm, cv::COLOR_BGR2BGRA);
-        // BGR → BGR0（Format_RGB32的小端布局是BGR0），无需转RGB
-        qimg = QImage(
-            reinterpret_cast<const uchar*>(mmm.data),
-            mmm.cols,
-            mmm.rows,
-            mmm.step,
-            QImage::Format_RGB32
-        );
-        qimg = qimg.copy();
-        return;
-    }
-
 protected:
+    void keyPressEvent(QKeyEvent* event) override;
+    
+    
     void initVAO() override;
     void initTexture() override;
+    void renderFBO() override;
 
 
-    void paintGL() override;
-
-    void keyPressEvent(QKeyEvent* event) override;
-
+protected:
     std::vector<SLAM_LYJ::Pose3D> Tcws_;
     std::vector<SLAM_LYJ::PinholeCamera> cams_;
     std::vector<COMMON_LYJ::CompressedImage*> comImgs_;

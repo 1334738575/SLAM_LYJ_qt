@@ -271,7 +271,7 @@ int testViewColmap(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
-    return testViewColmap(argc, argv);
+    //return testViewColmap(argc, argv);
 
     //return testViewTextures(argc, argv);
 
