@@ -68,7 +68,7 @@ public:
 		setWindowTitle(QString::fromStdString(_title));
 		setFixedSize(_w, _h);
 
-		openGLWidget_ = new MyOpenGLWidget(this);
+		openGLWidget_ = new MyOpenGLWidget(_w, _h, this);
 		layout_ = new QVBoxLayout(this);
 		layout_->addWidget(openGLWidget_);
 	}
@@ -201,11 +201,6 @@ static int testOpenGL()
 				comImg.decompressCVMat(cvM);
 				QImage image;
 				cvMat3CToQImageRGB32(cvM, image);
-				//QImage image("D:/SLAM_LYJ_Packages/SLAM_LYJ_qt/tmp/111.png");
-
-				//// 4. 使用QImage（显示/保存/处理）
-				//qDebug() << "图像宽：" << image.width() << " 高：" << image.height();
-				//qDebug() << "图像格式：" << image.format();
 
 				const auto& ps = obj.getVertexs();
 				const auto& fs = obj.getFaces();
@@ -237,7 +232,6 @@ static int testOpenGL()
 	return app.exec();
 }
 
-
 int testQT(int argc, char* argv[])
 {
 	// testButton();
@@ -245,22 +239,7 @@ int testQT(int argc, char* argv[])
 	// testImage();
 	 //testWindow(argc, argv);
 	 testOpenGL();
-
 	return 1;
-}
-QT_LYJ_API int testOpenGLOnly()
-{
-	return testGL();
-}
-
-
-
-QT_LYJ_API void debugWindows(int argc, char* argv[])
-{
-	QApplication app(argc, argv);
-	WindowsMatch window;
-	window.show();
-	app.exec();
 }
 
 
@@ -273,7 +252,7 @@ public:
 		setWindowTitle(QString::fromStdString(_title));
 		setFixedSize(_w, _h);
 
-		openGLWidgetTs_ = new MyOpenGLWidgetTs(this);
+		openGLWidgetTs_ = new MyOpenGLWidgetTs(_w, _h, this);
 		layout_ = new QVBoxLayout(this);
 		layout_->addWidget(openGLWidgetTs_);
 	}
@@ -412,4 +391,18 @@ QT_LYJ_API int testTcws(int argc, char* argv[],
 }
 
 
+
+
+QT_LYJ_API void debugWindows(int argc, char* argv[])
+{
+	QApplication app(argc, argv);
+	WindowsMatch window;
+	window.show();
+	app.exec();
+}
+
+QT_LYJ_API int testOpenGLOnly()
+{
+	return testGL();
+}
 NSP_QT_LYJ_END

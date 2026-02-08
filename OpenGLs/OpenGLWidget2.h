@@ -9,6 +9,7 @@
 #include <QMouseEvent>
 #include <QKeyEvent>
 #include <QWheelEvent>
+#include <QOpenGLFramebufferObject>
 
 #include <base/CameraModule.h>
 #include <base/Pose.h>
@@ -16,12 +17,12 @@
 #include <common/CommonAlgorithm.h>
 
 #include <opencv2/opencv.hpp>
-
-class MyOpenGLWidget : public QOpenGLWidget, protected QOpenGLFunctions
+#include <QOpenGLFunctions_4_3_Core>
+class MyOpenGLWidget : public QOpenGLWidget, protected QOpenGLFunctions_4_3_Core
 {
     Q_OBJECT
 public:
-    explicit MyOpenGLWidget(QWidget *parent = nullptr);
+    explicit MyOpenGLWidget(int _w, int _h, QWidget *parent = nullptr);
     ~MyOpenGLWidget();
 
     /// <summary>
@@ -46,6 +47,13 @@ public:
     virtual void setIndices(unsigned int* _inds, unsigned long long _sz);
 
 protected:
+    void initProgram(const std::string& _vertPath, const std::string& _fragPath);
+    virtual void initFBO();
+    virtual void initVAO();
+    virtual void initTexture();
+    void genTexture2D(QImage& _qImg, GLuint& _texId);
+    void initJustRenderProgram();
+
     void initializeGL() override;
     void paintGL() override;
     void resizeGL(int w, int h) override;
@@ -58,10 +66,26 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
 
 protected:
+    int m_w = 0;
+    int m_h = 0;    
+    std::string m_vPath;
+    std::string m_fPath;
+
     QOpenGLShaderProgram m_program;
     QOpenGLBuffer m_vbo{ QOpenGLBuffer::VertexBuffer };
     QOpenGLBuffer m_ebo{QOpenGLBuffer::IndexBuffer};
     QOpenGLVertexArrayObject m_vao;
+    QOpenGLFramebufferObject* m_fbo = nullptr;       // 自定义帧缓冲
+    GLuint m_outColorId = 0;                            // 颜色纹理ID（GL_COLOR_ATTACHMENT0）
+    GLuint m_outFaceId = 0;                             // 面片ID纹理ID（GL_COLOR_ATTACHMENT1）
+    GLuint m_outDepthId = 0;                            // 深度纹理ID
+
+    //just render to show
+    QOpenGLShaderProgram m_screenShader; // 全屏绘制着色器
+    QOpenGLVertexArrayObject m_screenVAO;            // 全屏四边形VAO
+    QOpenGLBuffer m_screenVBO{ QOpenGLBuffer::VertexBuffer };                       // 全屏四边形VBO
+    QOpenGLBuffer m_screenEBO{ QOpenGLBuffer::IndexBuffer };
+
     QMatrix4x4 m_projection;
     QMatrix4x4 m_viewInit;
     QMatrix4x4 m_view;
@@ -103,14 +127,6 @@ protected:
          0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
         -0.5f,  0.5f,  0.5f,  0.0f, 1.0f
     };
-    //std::vector<unsigned int> m_indicesDefault{
-    //    0, 1, 2, 3, // 底面
-    //    4, 5, 6, 7, // 顶面
-    //    0, 1, 5, 4, // 左侧面
-    //    2, 3, 7, 6, // 右侧面
-    //    0, 3, 7, 4, // 前侧面
-    //    1, 2, 6, 5 }; // 后侧面
-    // 按三角形拆分的索引数组（6个面 × 2个三角形 × 3个索引 = 36个索引）
     std::vector<unsigned int> m_indicesDefault{
         // 底面（后平面，-z）：拆分为 0→1→2 和 0→2→3
         0, 1, 2,
@@ -147,7 +163,7 @@ protected:
 class MyOpenGLWidgetTs :public MyOpenGLWidget
 {
 public:
-    explicit MyOpenGLWidgetTs(QWidget* parent = nullptr);
+    explicit MyOpenGLWidgetTs(int _w, int _h, QWidget* parent = nullptr);
     ~MyOpenGLWidgetTs();
 
     void setData(const std::vector<SLAM_LYJ::Pose3D>& _Tcws,
@@ -175,7 +191,10 @@ public:
     }
 
 protected:
-    void initializeGL() override;
+    void initVAO() override;
+    void initTexture() override;
+
+
     void paintGL() override;
 
     void keyPressEvent(QKeyEvent* event) override;

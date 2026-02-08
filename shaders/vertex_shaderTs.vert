@@ -11,9 +11,10 @@ out vec2 TexCoord;
 
 void main(){
     uint currentVertexID = uint(gl_VertexID); 
-    vec4 Pc = model * vec4(aPos, 1.0);
-    gl_Position = projection * view * Pc;
+    vec4 Pw = vec4(aPos, 1.0);
+    gl_Position = projection * view * Pw;
     
+    vec4 Pc = model * Pw;
     TexCoord = vec2(-1.0, -1.0);
     if(pValid[0] > 0.0 && Pc[2] > 0.0)
     {
