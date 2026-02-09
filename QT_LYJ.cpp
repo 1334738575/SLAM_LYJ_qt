@@ -63,12 +63,15 @@ static int testWindow(int argc, char* argv[])
 class OpenGLWindow : public QDialog
 {
 public:
-	OpenGLWindow(int _w = 800, int _h = 600, std::string _title = "OpenGL Window", QWidget* parent = nullptr) : QDialog(parent)
+	OpenGLWindow(bool bPly, int _w = 800, int _h = 600, std::string _title = "OpenGL Window", QWidget* parent = nullptr) : QDialog(parent)
 	{
 		setWindowTitle(QString::fromStdString(_title));
 		setFixedSize(_w, _h);
 
-		openGLWidget_ = new OpenGLWidgetObj(_w, _h, this);
+		if(bPly)
+			openGLWidget_ = new OpenGLWidgetPly(_w, _h, this);
+		else
+			openGLWidget_ = new OpenGLWidgetObj(_w, _h, this);
 		layout_ = new QVBoxLayout(this);
 		layout_->addWidget(openGLWidget_);
 	}
@@ -169,7 +172,7 @@ static int testOpenGL()
 				}
 				SLAM_LYJ::BaseTriMesh btm;
 				SLAM_LYJ::readPLYMesh(btmPath, btm);
-				OpenGLWindow *w = new OpenGLWindow(1600, 1200, "Show mesh or obj");
+				OpenGLWindow *w = new OpenGLWindow(true, 1600, 1200, "Show mesh or obj");
 				w->changeMesh(btm.getVertexs()[0].data(), btm.getVn(), btm.getFaces()[0].vId_, btm.getFn());
 
 				w->show();
@@ -216,7 +219,7 @@ static int testOpenGL()
 						newPs[uvIds[j]] = ps[vIds[j]];
 					}
 				}
-				OpenGLWindow* w = new OpenGLWindow(1600, 1200, "Show mesh or obj");
+				OpenGLWindow* w = new OpenGLWindow(false, 1600, 1200, "Show mesh or obj");
 				w->changeObj(newPs[0].data(), uvs[0].data(), image, uvs.size(), const_cast<uint32_t*>(triUVs[0].uvId_), fs.size());
 
 				w->show();
@@ -330,38 +333,38 @@ QT_LYJ_API int testTcws(int argc, char* argv[],
 			if (allvisiblePIds[j] == 1)
 				pValids[i].setFlag(j, true);
 		}
-		//std::vector<Eigen::Vector3f> Pws;
-		//for (int j = 0; j < PSize; ++j)
-		//{
-		//	if (pValids[i][j])
-		//		Pws.push_back(vertexs[j]);
-		//}
-		//SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btmTmp;
-		//btmTmp.setVertexs(Pws);
-		//SLAM_LYJ::writePLYMesh("D:/tmp/pValid.ply", btmTmp);
-	 //   cv::Mat depthsMShow(w, h, CV_8UC1);
-	 //   depthsMShow.setTo(cv::Scalar(0));
-	 //   std::vector<Eigen::Vector3f> Pcs;
-	 //   Pcs.reserve(w * h);
-	 //   for (int ii = 0; ii < h; ++ii)
-	 //   {
-	 //       for (int j = 0; j < w; ++j)
-	 //       {
-	 //           float d = depths[ii * w + j];
-	 //           if (d == FLT_MAX)
-	 //           {
-	 //               depthsMShow.at<uchar>(ii, j) = 0;
-	 //               continue;
-	 //           }
-	 //           Eigen::Vector3d Pc;
-	 //           pinCam.image2World(j, ii, d, Pc);
-	 //           Pcs.push_back(Pc.cast<float>());
-	 //           depthsMShow.at<uchar>(ii, j) = d * 20 < 255 ? (char)(d * 20) : 255;
-	 //       }
-	 //   }
-		//cv::imwrite("D:/tmp/" + std::to_string(i) + ".png", depthsMShow);
-	 //   //cv::imshow("depth", depthsMShow);
-	 //   //cv::waitKey();
+		std::vector<Eigen::Vector3f> Pws;
+		for (int j = 0; j < PSize; ++j)
+		{
+			if (pValids[i][j])
+				Pws.push_back(vertexs[j]);
+		}
+		SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btmTmp;
+		btmTmp.setVertexs(Pws);
+		SLAM_LYJ::writePLYMesh("D:/tmp/pValid" + std::to_string(i) + ".ply", btmTmp);
+	    cv::Mat depthsMShow(h, w, CV_8UC1);
+	    depthsMShow.setTo(cv::Scalar(0));
+	    std::vector<Eigen::Vector3f> Pcs;
+	    Pcs.reserve(w * h);
+	    for (int ii = 0; ii < h; ++ii)
+	    {
+	        for (int j = 0; j < w; ++j)
+	        {
+	            float d = depths[ii * w + j];
+	            if (d == FLT_MAX)
+	            {
+	                depthsMShow.at<uchar>(ii, j) = 0;
+	                continue;
+	            }
+	            Eigen::Vector3d Pc;
+	            pinCam.image2World(j, ii, d, Pc);
+	            Pcs.push_back(Pc.cast<float>());
+	            depthsMShow.at<uchar>(ii, j) = d * 20 < 255 ? (char)(d * 20) : 255;
+	        }
+	    }
+		cv::imwrite("D:/tmp/" + std::to_string(i) + ".png", depthsMShow);
+	    //cv::imshow("depth", depthsMShow);
+	    //cv::waitKey();
 		continue;
 	}
 

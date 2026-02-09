@@ -134,6 +134,7 @@ public:
     ~OpenGLWidgetPly();
 
     void setVertices(const float* const _vtcs, unsigned long long _sz) override;
+    void setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz) override;
     void setIndices(unsigned int* _inds, unsigned long long _sz) override;
 
 protected:

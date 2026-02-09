@@ -400,6 +400,10 @@ void OpenGLWidgetPly::setVertices(const float* const _vtcs, unsigned long long _
         m_verticesDefault[m_vtxStep * i + 2] = _vtcs[3 * i + 2];
     }
 }
+void OpenGLWidgetPly::setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz)
+{
+    return;
+}
 void OpenGLWidgetPly::setIndices(unsigned int* _inds, unsigned long long _sz)
 {
     m_indices = _inds;
@@ -550,7 +554,7 @@ OpenGLWidgetObj::~OpenGLWidgetObj()
 void OpenGLWidgetObj::setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz)
 {
     m_vSize = _sz * m_vtxStep;
-    m_verticesDefault.assign(m_vSize, 0);
+    m_verticesDefault.assign(m_vSize, -1);
     m_vertices = m_verticesDefault.data();
     for (int i = 0; i < _sz; ++i)
     {
@@ -907,4 +911,3 @@ void MyOpenGLWidgetTs::renderFBO()
     m_fbo->release();
     
 }
-
