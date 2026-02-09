@@ -87,7 +87,7 @@ protected:
     QOpenGLFramebufferObject* m_fbo = nullptr;       // 自定义帧缓冲
     GLuint m_outColorId = 0;                            // 颜色纹理ID（GL_COLOR_ATTACHMENT0）
     GLuint m_outFaceId = 0;                             // 面片ID纹理ID（GL_COLOR_ATTACHMENT1）
-    //GLuint m_outDepthId = 0;                            // 深度纹理ID
+    GLuint m_outDepthId = 0;                            // 深度纹理ID
 
     //just render to show
     QOpenGLShaderProgram m_screenShader; // 全屏绘制着色器

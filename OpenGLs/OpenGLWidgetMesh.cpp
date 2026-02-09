@@ -161,6 +161,7 @@ void OpenGLWidgetMeshAbr::initProgram(const std::string& _vertPath, const std::s
 }
 void OpenGLWidgetMeshAbr::initFBO()
 {
+    //std::cout << devicePixelRatio() << std::endl;
     int width = m_w;
     int height = m_h;
     // 销毁旧FBO和纹理
@@ -170,7 +171,7 @@ void OpenGLWidgetMeshAbr::initFBO()
     }
     if (m_outColorId) glDeleteTextures(1, &m_outColorId);
     if (m_outFaceId) glDeleteTextures(1, &m_outFaceId);
-    //if (m_outDepthId) glDeleteTextures(1, &m_outDepthId);
+    if (m_outDepthId) glDeleteTextures(1, &m_outDepthId);
 
     // 1. 创建FBO
     m_fbo = new QOpenGLFramebufferObject(width, height, QOpenGLFramebufferObject::NoAttachment);
@@ -187,6 +188,8 @@ void OpenGLWidgetMeshAbr::initFBO()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_outColorId, 0);
 
     // 3. 创建颜色附着1纹理：存储面片ID（GL_RGBA8UI）
@@ -197,15 +200,17 @@ void OpenGLWidgetMeshAbr::initFBO()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, m_outFaceId, 0);
 
-    //// 4. 创建深度附着纹理：存储深度值（DEPTH_COMPONENT32F，高精度深度）
-    //glGenTextures(1, &m_outDepthId);
-    //glBindTexture(GL_TEXTURE_2D, m_outDepthId);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_outDepthId, 0);
+    // 4. 创建深度附着纹理：存储深度值（DEPTH_COMPONENT32F，高精度深度），必须有不然无法进行深度测试
+    glGenTextures(1, &m_outDepthId);
+    glBindTexture(GL_TEXTURE_2D, m_outDepthId);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_outDepthId, 0);
 
     // 5. 关键：指定FBO的颜色输出附着点（与片段着色器out变量对应）
+    //GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0 };
+    //glDrawBuffers(1, drawBuffers);
     GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
     glDrawBuffers(2, drawBuffers);
 
@@ -590,7 +595,6 @@ void OpenGLWidgetObj::initVAO()
     m_ebo.create();
     m_ebo.bind();
     m_ebo.allocate(m_indices, m_iSize * sizeof(unsigned int));
-
     m_ebo.release();
     m_vbo.release();
     m_vao.release();
@@ -733,6 +737,8 @@ void MyOpenGLWidgetTs::initVAO()
     m_ebo.bind();
     m_ebo.allocate(m_indices, m_iSize * sizeof(unsigned int));
 
+    m_ebo.release();
+    m_vbo.release();
     m_vao.release();
 }
 void MyOpenGLWidgetTs::initTexture()
@@ -754,6 +760,7 @@ void MyOpenGLWidgetTs::initTexture()
 void MyOpenGLWidgetTs::renderFBO()
 {
     m_fbo->bind();
+    glViewport(0, 0, m_w, m_h);
     glDisable(GL_BLEND); //输出8UI时，必须禁用
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);

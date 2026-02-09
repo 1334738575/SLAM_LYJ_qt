@@ -333,38 +333,38 @@ QT_LYJ_API int testTcws(int argc, char* argv[],
 			if (allvisiblePIds[j] == 1)
 				pValids[i].setFlag(j, true);
 		}
-		std::vector<Eigen::Vector3f> Pws;
-		for (int j = 0; j < PSize; ++j)
-		{
-			if (pValids[i][j])
-				Pws.push_back(vertexs[j]);
-		}
-		SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btmTmp;
-		btmTmp.setVertexs(Pws);
-		SLAM_LYJ::writePLYMesh("D:/tmp/pValid" + std::to_string(i) + ".ply", btmTmp);
-	    cv::Mat depthsMShow(h, w, CV_8UC1);
-	    depthsMShow.setTo(cv::Scalar(0));
-	    std::vector<Eigen::Vector3f> Pcs;
-	    Pcs.reserve(w * h);
-	    for (int ii = 0; ii < h; ++ii)
-	    {
-	        for (int j = 0; j < w; ++j)
-	        {
-	            float d = depths[ii * w + j];
-	            if (d == FLT_MAX)
-	            {
-	                depthsMShow.at<uchar>(ii, j) = 0;
-	                continue;
-	            }
-	            Eigen::Vector3d Pc;
-	            pinCam.image2World(j, ii, d, Pc);
-	            Pcs.push_back(Pc.cast<float>());
-	            depthsMShow.at<uchar>(ii, j) = d * 20 < 255 ? (char)(d * 20) : 255;
-	        }
-	    }
-		cv::imwrite("D:/tmp/" + std::to_string(i) + ".png", depthsMShow);
-	    //cv::imshow("depth", depthsMShow);
-	    //cv::waitKey();
+		//std::vector<Eigen::Vector3f> Pws;
+		//for (int j = 0; j < PSize; ++j)
+		//{
+		//	if (pValids[i][j])
+		//		Pws.push_back(vertexs[j]);
+		//}
+		//SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btmTmp;
+		//btmTmp.setVertexs(Pws);
+		//SLAM_LYJ::writePLYMesh("D:/tmp/pValid" + std::to_string(i) + ".ply", btmTmp);
+	 //   cv::Mat depthsMShow(h, w, CV_8UC1);
+	 //   depthsMShow.setTo(cv::Scalar(0));
+	 //   std::vector<Eigen::Vector3f> Pcs;
+	 //   Pcs.reserve(w * h);
+	 //   for (int ii = 0; ii < h; ++ii)
+	 //   {
+	 //       for (int j = 0; j < w; ++j)
+	 //       {
+	 //           float d = depths[ii * w + j];
+	 //           if (d == FLT_MAX)
+	 //           {
+	 //               depthsMShow.at<uchar>(ii, j) = 0;
+	 //               continue;
+	 //           }
+	 //           Eigen::Vector3d Pc;
+	 //           pinCam.image2World(j, ii, d, Pc);
+	 //           Pcs.push_back(Pc.cast<float>());
+	 //           depthsMShow.at<uchar>(ii, j) = d * 20 < 255 ? (char)(d * 20) : 255;
+	 //       }
+	 //   }
+		//cv::imwrite("D:/tmp/" + std::to_string(i) + ".png", depthsMShow);
+	 //   //cv::imshow("depth", depthsMShow);
+	 //   //cv::waitKey();
 		continue;
 	}
 

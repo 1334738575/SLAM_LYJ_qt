@@ -216,7 +216,7 @@ int testViewTextures(int argc, char* argv[])
     std::string btmPath = "D:/tmp/res_mesh.ply";
     SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btm;
     SLAM_LYJ::readPLYMesh(btmPath, btm);
-    int sz = 60;
+    int sz = 10;
     std::vector<SLAM_LYJ::Pose3D> Tcws(sz);
     std::vector<SLAM_LYJ::PinholeCamera> cams(sz);
     std::vector<COMMON_LYJ::CompressedImage> comImgs(sz);
