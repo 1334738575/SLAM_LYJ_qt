@@ -61,10 +61,14 @@ protected:
 protected:
     void initProgram(const std::string& _vertPath, const std::string& _fragPath);
     void initFBO();
-    virtual void initVAO() = 0;
+    void initVAO();
+    void initMatrix();
+    virtual void setAttribute() = 0;
     virtual void initTexture() = 0;
-    virtual void updateMatrix() = 0;
-    virtual void renderFBO() = 0;
+    void updateViewInit();
+    virtual void updateMatrixAndUBO() = 0;
+    void renderFBO();
+    virtual void drawFBO() = 0;
     void renderWindows();
 
 
@@ -105,6 +109,11 @@ protected:
     GLuint m_textureID = 0;
     QImage m_textureDefault;
     GLuint m_textureIDDefault = 0;
+    // 立方体顶点数据 (位置)
+    std::vector<float> m_verticesDefault;
+    std::vector<unsigned int> m_indicesDefault;
+    std::vector<uchar> attch1;//减少内存碎片
+    std::vector<unsigned int> fids;
 
     bool m_bDrawVertices = true;
     bool m_bDrawFaces = false;
@@ -139,10 +148,10 @@ public:
 
 protected:
 
-    virtual void initVAO();
+    virtual void setAttribute();
     virtual void initTexture();
-    virtual void updateMatrix();
-    virtual void renderFBO();
+    virtual void updateMatrixAndUBO();
+    virtual void drawFBO();
 
 
 
@@ -150,9 +159,6 @@ protected:
     int m_vtxStep = 0;
     int m_pointStep = 0;
     int m_uvStep = 0;
-    // 立方体顶点数据 (位置)
-    std::vector<float> m_verticesDefault;
-    std::vector<unsigned int> m_indicesDefault;
 };
 
 class OpenGLWidgetObj : public OpenGLWidgetPly
@@ -164,9 +170,9 @@ public:
     void setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz) override;
 
 protected:
-    virtual void initVAO();
+    virtual void setAttribute();
     virtual void initTexture();
-    virtual void renderFBO();
+    virtual void drawFBO();
 
 };
 
@@ -185,9 +191,10 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     
     
-    void initVAO() override;
+    void setAttribute() override;
     void initTexture() override;
-    void renderFBO() override;
+    void updateMatrixAndUBO() override;
+    void drawFBO()override;
 
 
 protected:

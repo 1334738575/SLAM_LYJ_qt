@@ -22,6 +22,8 @@ OpenGLWidgetMeshAbr::OpenGLWidgetMeshAbr(int _w, int _h, QWidget *parent)
     // 填充灰色（R=G=B=grayValue，A=255 不透明）
     m_textureDefault.fill(QColor(grayValue, grayValue, grayValue, 255));
     m_texture = m_textureDefault;
+    attch1.resize(m_w * m_h * 4, 0);
+    fids.resize(m_w * m_h * 4, UINT_MAX);
 }
 OpenGLWidgetMeshAbr::~OpenGLWidgetMeshAbr()
 {
@@ -45,7 +47,7 @@ void OpenGLWidgetMeshAbr::initializeGL()
     genTexture2D(m_textureDefault, m_textureIDDefault);
 
     // 初始化视图矩阵
-    updateMatrix();
+    initMatrix();
 }
 void OpenGLWidgetMeshAbr::paintGL()
 {
@@ -125,6 +127,9 @@ void OpenGLWidgetMeshAbr::keyPressEvent(QKeyEvent* event)
         //case Qt::Key_Right:
         //	m_detX += 0.1f;
         //	break;
+    case Qt::Key_R:
+        initMatrix();
+        break;
     default:
         break;
     }
@@ -224,6 +229,176 @@ void OpenGLWidgetMeshAbr::initFBO()
     // 解绑纹理和FBO
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+void OpenGLWidgetMeshAbr::initVAO()
+{
+    m_vao.create();
+    m_vao.bind();
+
+    // 初始化顶点缓冲
+    m_vbo.create();
+    m_vbo.bind();
+    m_vbo.allocate(m_vertices, m_vSize * sizeof(float));
+
+    setAttribute();
+
+    //indexs
+    m_ebo.create();
+    m_ebo.bind();
+    m_ebo.allocate(m_indices, m_iSize * sizeof(unsigned int));
+
+    m_ebo.release();
+    m_vbo.release();
+    m_vao.release();
+}
+void OpenGLWidgetMeshAbr::updateViewInit()
+{
+    int curX = m_lastPos.x();
+    int curY = m_lastPos.y();
+    uint fId = fids[(m_h - curY - 1) * m_w + curX];
+    if (fId == UINT_MAX)
+        return;
+    float fx =0, fy=0, fz=0;
+    for (int i = 0; i < 3; ++i)
+    {
+        fx += m_vertices[m_indices[fId * 3 + i] + 0];
+        fy += m_vertices[m_indices[fId * 3 + i] + 1];
+        fz += m_vertices[m_indices[fId * 3 + i] + 2];
+    }
+    fx /= 3;
+    fy /= 3;
+    fz /= 3;
+    m_viewInit.lookAt(QVector3D(fx, fy, fz - 3), QVector3D(fx, fy, fz), QVector3D(0, 1, 0));
+
+    return;
+}
+void OpenGLWidgetMeshAbr::initMatrix()
+{
+    m_model.setToIdentity();
+    m_viewInit.lookAt(QVector3D(0, 0, -3), QVector3D(0, 0, 0), QVector3D(0, 1, 0));
+    //QMatrix4x4 QMatrix4x4::lookAt(
+    //    const QVector3D & eye,    // 摄像机位置
+    //    const QVector3D & center, // 观察目标点
+    //    const QVector3D & up     // 定义"上"方向的向量（通常为世界坐标系Y轴）
+    //);
+}
+void OpenGLWidgetMeshAbr::renderFBO()
+{
+    m_fbo->bind();
+    glViewport(0, 0, m_w, m_h);
+    glDisable(GL_BLEND); //输出8UI时，必须禁用
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    m_program.bind();
+    m_vao.bind();
+    m_vbo.bind();
+    m_ebo.bind();
+
+    updateMatrixAndUBO();
+
+    drawFBO();
+
+    //读取颜色附件: 使用 glReadBuffer 指定颜色附件，然后通过 glReadPixels 读取。
+    //读取深度附件 : 直接调用 glReadPixels 并指定 GL_DEPTH_COMPONENT 作为格式，从而读取深度数据。
+    //保存颜色
+    int SCR_WIDTH = m_w;
+    int SCR_HEIGHT = m_h;
+
+    if (false) {
+        glReadBuffer(GL_COLOR_ATTACHMENT0);
+        std::vector<float> colors(SCR_WIDTH * SCR_HEIGHT * 4);
+        glReadPixels(0, 0, SCR_WIDTH, SCR_HEIGHT, GL_RGBA, GL_FLOAT, colors.data());
+        cv::Mat mm = cv::Mat::zeros(SCR_HEIGHT, SCR_WIDTH, CV_8UC3);
+        for (uint32_t i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
+            uint32_t id = i * 4;
+            int r = colors[id + 0] * 255;
+            int g = colors[id + 1] * 255;
+            int b = colors[id + 2] * 255;
+            int a = colors[id + 3] * 255;
+            int x = i % SCR_WIDTH;
+            int y = i / SCR_WIDTH;
+            cv::Vec3b& vvv = mm.at<cv::Vec3b>(m_h - y - 1, x);
+            vvv[0] = uchar(b);
+            vvv[1] = uchar(g);
+            vvv[2] = uchar(r);
+        }
+        cv::imshow("clr", mm);
+    }
+    glReadBuffer(GL_COLOR_ATTACHMENT1);
+    attch1.resize(SCR_WIDTH * SCR_HEIGHT * 4);
+    glReadPixels(0, 0, SCR_WIDTH, SCR_HEIGHT, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, attch1.data());
+    fids.resize(SCR_WIDTH * SCR_HEIGHT, UINT_MAX);
+    for (uint32_t i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
+        uint32_t id = i * 4;
+        if (((int)attch1[id + 0] + (int)attch1[id + 1] + (int)attch1[id + 2] + (int)attch1[id + 3]) == 0)
+            continue;
+        uchar r = attch1[id + 0];
+        uchar g = attch1[id + 1];
+        uchar b = attch1[id + 2];
+        uchar a = attch1[id + 3];
+        uint32_t ret = ((attch1[id + 0] - 1) << 24) | (attch1[id + 1] << 16) | (attch1[id + 2] << 8) | attch1[id + 3];
+        fids[i] = ret;
+    }
+    if (false) {
+        cv::Mat mm = cv::Mat::zeros(SCR_HEIGHT, SCR_WIDTH, CV_8UC1);
+        for (uint32_t i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
+            uint32_t id = i * 4;
+            if (((int)attch1[id + 0] + (int)attch1[id + 1] + (int)attch1[id + 2] + (int)attch1[id + 3]) == 0)
+                continue;
+            uchar r = attch1[id + 0];
+            uchar g = attch1[id + 1];
+            uchar b = attch1[id + 2];
+            uchar a = attch1[id + 3];
+            int x = i % SCR_WIDTH;
+            int y = i / SCR_WIDTH;
+            mm.at<uchar>(y, x) = 255;
+        }
+        cv::imshow("fid", mm);
+        std::vector<Eigen::Vector3f> ps;
+        for (int i = 0; i < fids.size(); ++i)
+        {
+            if (fids[i] == UINT_MAX)
+                continue;
+            for (int j = 0; j < 3; ++j)
+            {
+                Eigen::Vector3f p;
+                uint pId = m_indices[3 * fids[i] + j];
+                p(0) = m_verticesDefault[5 * pId];
+                p(1) = m_verticesDefault[5 * pId + 1];
+                p(2) = m_verticesDefault[5 * pId + 2];
+                ps.push_back(p);
+            }
+        }
+        SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btm;
+        btm.setVertexs(ps);
+        SLAM_LYJ::writePLYMesh("D:/tmp/fid.ply", btm);
+    }
+
+    //{
+    //    std::vector<float> depthData(SCR_WIDTH * SCR_HEIGHT);
+    //    glBindTexture(GL_TEXTURE_2D, m_outDepthId);
+    //    // 正常应为 GL_DEPTH_COMPONENT32F (0x8CAC) 或 GL_DEPTH_COMPONENT24 (0x81A6)
+    //    glGetTexImage(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GL_FLOAT, depthData.data());
+    //    cv::Mat m(SCR_HEIGHT, SCR_WIDTH, CV_8UC1);
+    //    for (int i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
+    //        //if (depthData[i] != 1.0)
+    //            //std::cout << "111111" << std::endl;
+    //        int x = i % SCR_WIDTH;
+    //        int y = i / SCR_WIDTH;
+    //        float d = (depthData[i] - 0.5f) * 2;
+    //        m.at<uchar>(y, x) = static_cast<unsigned char>(d * 255);
+    //    }
+    //    cv::imshow("ddd", m);
+    //}
+
+    m_vbo.release();
+    m_ebo.release();
+    m_vao.release();
+    m_program.release();
+    m_fbo->release();
 }
 void OpenGLWidgetMeshAbr::renderWindows()
 {
@@ -416,58 +591,19 @@ void OpenGLWidgetPly::setIndices(unsigned int* _inds, unsigned long long _sz)
 }
 
 
-void OpenGLWidgetPly::initVAO()
+void OpenGLWidgetPly::setAttribute()
 {
-    m_vao.create();
-    m_vao.bind();
-
-    // 初始化顶点缓冲
-    m_vbo.create();
-    m_vbo.bind();
-    m_vbo.allocate(m_vertices, m_vSize * sizeof(float));
-
     // 配置顶点属性
     m_program.enableAttributeArray(0);
     m_program.setAttributeBuffer(0, GL_FLOAT, 0, m_pointStep, m_vtxStep * sizeof(GLfloat));
-
-    //indexs
-    m_ebo.create();
-    m_ebo.bind();
-    m_ebo.allocate(m_indices, m_iSize * sizeof(unsigned int));
-
-    m_ebo.release();
-    m_vbo.release();
-    m_vao.release();
 }
 void OpenGLWidgetPly::initTexture()
 {
     return;
 }
-void OpenGLWidgetPly::updateMatrix()
+void OpenGLWidgetPly::updateMatrixAndUBO()
 {
-    m_model.setToIdentity();
-    m_view.lookAt(QVector3D(0, 0, -3), QVector3D(0, 0, 0), QVector3D(0, 1, 0));
-    m_viewInit = m_view;
-    //QMatrix4x4 QMatrix4x4::lookAt(
-    //    const QVector3D & eye,    // 摄像机位置
-    //    const QVector3D & center, // 观察目标点
-    //    const QVector3D & up     // 定义"上"方向的向量（通常为世界坐标系Y轴）
-    //);
-}
-void OpenGLWidgetPly::renderFBO()
-{
-    m_fbo->bind();
-    glDisable(GL_BLEND); //输出8UI时，必须禁用
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glDepthMask(GL_TRUE);
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    m_program.bind();
-    m_vao.bind();
-    m_vbo.bind();
-    m_ebo.bind();
-
+    //updateViewInit();
     QMatrix4x4 mTmp;
     mTmp.setToIdentity();
     mTmp.rotate(m_detYRot, QVector3D(0.f, 1.0f, 0.0f));
@@ -476,13 +612,13 @@ void OpenGLWidgetPly::renderFBO()
     mTmp(1, 3) = m_detY;
     mTmp(2, 3) = m_detZ;
     m_view = m_viewInit * mTmp;
-
     // 传递矩阵到Shader
     m_program.setUniformValue("model", m_model);
     m_program.setUniformValue("view", m_view);
     m_program.setUniformValue("projection", m_projection);
-
-
+}
+void OpenGLWidgetPly::drawFBO()
+{
     if (m_bDrawVertices)
     {
         glPointSize(10.0f);
@@ -494,12 +630,6 @@ void OpenGLWidgetPly::renderFBO()
     //glDrawArrays(GL_LINES, 0, 8);
     //glDrawArrays(GL_LINE_LOOP, 0, 4);
     //glDrawArrays(GL_LINE_LOOP, 4, 4);
-
-    m_vbo.release();
-    m_ebo.release();
-    m_vao.release();
-    m_program.release();
-    m_fbo->release();
 }
 
 
@@ -573,16 +703,8 @@ void OpenGLWidgetObj::setVerticesTexture(const float* const _vtcs, const float* 
 }
 
 
-void OpenGLWidgetObj::initVAO()
+void OpenGLWidgetObj::setAttribute()
 {
-    m_vao.create();
-    m_vao.bind();
-
-    // 初始化顶点缓冲
-    m_vbo.create();
-    m_vbo.bind();
-    m_vbo.allocate(m_vertices, m_vSize * sizeof(float));
-
     // 配置顶点属性
     m_program.enableAttributeArray(0);
     m_program.setAttributeBuffer(0, GL_FLOAT, 0, m_pointStep, m_vtxStep * sizeof(GLfloat));
@@ -590,14 +712,6 @@ void OpenGLWidgetObj::initVAO()
     m_program.enableAttributeArray(1);
     m_program.setAttributeBuffer(1, GL_FLOAT, m_pointStep * sizeof(GLfloat), m_uvStep, m_vtxStep * sizeof(GLfloat));
     m_program.setUniformValue("ourTexture", 0); // 告诉着色器采样器用单元0
-
-    //indexs
-    m_ebo.create();
-    m_ebo.bind();
-    m_ebo.allocate(m_indices, m_iSize * sizeof(unsigned int));
-    m_ebo.release();
-    m_vbo.release();
-    m_vao.release();
 }
 void OpenGLWidgetObj::initTexture()
 {
@@ -606,35 +720,8 @@ void OpenGLWidgetObj::initTexture()
     QImage imgOpengl = m_texture.convertToFormat(QImage::Format_RGBA8888).mirrored(false, true);
     genTexture2D(imgOpengl, m_textureID);
 }
-void OpenGLWidgetObj::renderFBO()
+void OpenGLWidgetObj::drawFBO()
 {
-    m_fbo->bind();
-    glDisable(GL_BLEND); //输出8UI时，必须禁用
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glDepthMask(GL_TRUE);
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    m_program.bind();
-    m_vao.bind();
-    m_vbo.bind();
-    m_ebo.bind();
-
-    QMatrix4x4 mTmp;
-    mTmp.setToIdentity();
-    mTmp.rotate(m_detYRot, QVector3D(0.f, 1.0f, 0.0f));
-    mTmp.rotate(m_detXRot, QVector3D(1.f, 0.0f, 0.0f));
-    mTmp(0, 3) = -m_detX;
-    mTmp(1, 3) = m_detY;
-    mTmp(2, 3) = m_detZ;
-    m_view = m_viewInit * mTmp;
-
-    // 传递矩阵到Shader
-    m_program.setUniformValue("model", m_model);
-    m_program.setUniformValue("view", m_view);
-    m_program.setUniformValue("projection", m_projection);
-
-
     glActiveTexture(GL_TEXTURE0); // 激活纹理单元0（默认）
     if (m_bDrawTexture)
         glBindTexture(GL_TEXTURE_2D, m_textureID);
@@ -647,12 +734,6 @@ void OpenGLWidgetObj::renderFBO()
     }
     if (m_bDrawFaces && (m_iSize > 0))
         glDrawElements(GL_TRIANGLES, GLsizei(m_iSize), GL_UNSIGNED_INT, 0);
-
-    m_vbo.release();
-    m_ebo.release();
-    m_vao.release();
-    m_program.release();
-    m_fbo->release();
 }
 
 
@@ -705,6 +786,9 @@ void MyOpenGLWidgetTs::keyPressEvent(QKeyEvent* event)
     case Qt::Key_Left:
         curId_ = (curId_ - 1) < 0 ? (Tcws_.size() - 1) : (curId_ - 1);
         break;
+    case Qt::Key_R:
+        initMatrix();
+        break;
     default:
         break;
     }
@@ -713,17 +797,8 @@ void MyOpenGLWidgetTs::keyPressEvent(QKeyEvent* event)
 }
 
 
-void MyOpenGLWidgetTs::initVAO()
+void MyOpenGLWidgetTs::setAttribute()
 {
-    //有VAO的话，VBO和EBO可以不绑定
-    m_vao.create();
-    m_vao.bind();
-
-    // 初始化顶点缓冲
-    m_vbo.create();
-    m_vbo.bind();
-    m_vbo.allocate(m_vertices, m_vSize * sizeof(float));
-
     // 配置顶点属性
     m_program.enableAttributeArray(0);
     m_program.setAttributeBuffer(0, GL_FLOAT, 0, m_pointStep, m_vtxStep * sizeof(GLfloat));
@@ -731,15 +806,6 @@ void MyOpenGLWidgetTs::initVAO()
     m_program.enableAttributeArray(1);
     m_program.setAttributeBuffer(1, GL_FLOAT, m_pointStep * sizeof(GLfloat), m_uvStep, m_vtxStep * sizeof(GLfloat));
     m_program.setUniformValue("ourTexture", 0); // 告诉着色器采样器用单元0, GL_TEXTURE0
-
-    //indexs
-    m_ebo.create();
-    m_ebo.bind();
-    m_ebo.allocate(m_indices, m_iSize * sizeof(unsigned int));
-
-    m_ebo.release();
-    m_vbo.release();
-    m_vao.release();
 }
 void MyOpenGLWidgetTs::initTexture()
 {
@@ -757,21 +823,9 @@ void MyOpenGLWidgetTs::initTexture()
         genTexture2D(imgOpengl, textures_[i]);
     }
 }
-void MyOpenGLWidgetTs::renderFBO()
+void MyOpenGLWidgetTs::updateMatrixAndUBO()
 {
-    m_fbo->bind();
-    glViewport(0, 0, m_w, m_h);
-    glDisable(GL_BLEND); //输出8UI时，必须禁用
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glDepthMask(GL_TRUE);
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    m_program.bind();
-    m_vao.bind();
-    m_vbo.bind();
-    m_ebo.bind();
-
+    //updateViewInit();
     QMatrix4x4 mTmp;
     mTmp.setToIdentity();
     mTmp.rotate(m_detYRot, QVector3D(0.f, 1.0f, 0.0f));
@@ -789,30 +843,29 @@ void MyOpenGLWidgetTs::renderFBO()
         }
         m_model(i, 3) = T.gett()(i);
     }
-
-    // 传递矩阵到Shader
-    m_program.setUniformValue("model", m_model);
-    m_program.setUniformValue("view", m_view);
-    m_program.setUniformValue("projection", m_projection);
     QMatrix4x4 camK;
     camK.setToIdentity();
     camK(0, 0) = cams_[0].fx() / cams_[0].wide();
     camK(1, 1) = cams_[0].fy() / cams_[0].height();
     camK(0, 2) = cams_[0].cx() / cams_[0].wide();
     camK(1, 2) = cams_[0].cy() / cams_[0].height();
-    m_program.setUniformValue("cam", camK);
-    // 2. 创建并初始化UBO
     int pVSz = pValids_[curId_]->size();
     for (int i = 0; i < pVSz; ++i)
     {
-        if((*pValids_[curId_])[i])
+        if ((*pValids_[curId_])[i])
             m_vertices[i * m_vtxStep + 3] = 1;
         else
             m_vertices[i * m_vtxStep + 3] = -1;
     }
+    // 传递矩阵到Shader
+    m_program.setUniformValue("model", m_model);
+    m_program.setUniformValue("view", m_view);
+    m_program.setUniformValue("projection", m_projection);
+    m_program.setUniformValue("cam", camK);
     m_vbo.write(0, m_vertices, m_vSize * sizeof(float));
-
-
+}
+void MyOpenGLWidgetTs::drawFBO()
+{
     glActiveTexture(GL_TEXTURE0); // 激活纹理单元0（默认）
     if (m_bDrawTexture)
         glBindTexture(GL_TEXTURE_2D, textures_[curId_]);
@@ -825,96 +878,4 @@ void MyOpenGLWidgetTs::renderFBO()
     }
     if (m_bDrawFaces)
         glDrawElements(GL_TRIANGLES, GLsizei(m_iSize), GL_UNSIGNED_INT, 0);
-
-    //读取颜色附件: 使用 glReadBuffer 指定颜色附件，然后通过 glReadPixels 读取。
-    //读取深度附件 : 直接调用 glReadPixels 并指定 GL_DEPTH_COMPONENT 作为格式，从而读取深度数据。
-    //保存颜色
-    int SCR_WIDTH = m_w;
-    int SCR_HEIGHT = m_h;
-
-    if(true){
-        glReadBuffer(GL_COLOR_ATTACHMENT0);
-        std::vector<float> colors(SCR_WIDTH * SCR_HEIGHT * 4);
-        glReadPixels(0, 0, SCR_WIDTH, SCR_HEIGHT, GL_RGBA, GL_FLOAT, colors.data());
-        cv::Mat mm = cv::Mat::zeros(SCR_HEIGHT, SCR_WIDTH, CV_8UC3);
-        for (uint32_t i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
-            uint32_t id = i * 4;
-            int r = colors[id + 0] * 255;
-            int g = colors[id + 1] * 255;
-            int b = colors[id + 2] * 255;
-            int a = colors[id + 3] * 255;
-            int x = i % SCR_WIDTH;
-            int y = i / SCR_WIDTH;
-            cv::Vec3b& vvv = mm.at<cv::Vec3b>(m_h - y - 1, x);
-            vvv[0] = uchar(b);
-            vvv[1] = uchar(g);
-            vvv[2] = uchar(r);
-        }
-        cv::imshow("clr", mm);
-    }
-
-    if(false){
-        glReadBuffer(GL_COLOR_ATTACHMENT1);
-        std::vector<uchar> colors(SCR_WIDTH * SCR_HEIGHT * 4);
-        glReadPixels(0, 0, SCR_WIDTH, SCR_HEIGHT, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, colors.data());
-        std::vector<uint32_t> fids(SCR_WIDTH * SCR_HEIGHT, UINT_MAX);
-        cv::Mat mm = cv::Mat::zeros(SCR_HEIGHT, SCR_WIDTH, CV_8UC1);
-        for (uint32_t i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
-            uint32_t id = i * 4;
-            if (((int)colors[id + 0] + (int)colors[id + 1] + (int)colors[id + 2] + (int)colors[id + 3]) == 0)
-                continue;
-            uchar r = colors[id + 0];
-            uchar g = colors[id + 1];
-            uchar b = colors[id + 2];
-            uchar a = colors[id + 3];
-            int x = i % SCR_WIDTH;
-            int y = i / SCR_WIDTH;
-            uint32_t ret = ((colors[id + 0] - 1) << 24) | (colors[id + 1] << 16) | (colors[id + 2] << 8) | colors[id + 3];
-            fids[i] = ret;
-            mm.at<uchar>(y, x) = 255;
-        }
-        cv::imshow("fid", mm);
-        std::vector<Eigen::Vector3f> ps;
-        for (int i = 0; i < fids.size(); ++i)
-        {
-            if (fids[i] == UINT_MAX)
-                continue;
-            for (int j = 0; j < 3; ++j)
-            {
-                Eigen::Vector3f p;
-                uint pId = m_indices[3 * fids[i] + j];
-                p(0) = m_verticesDefault[5 * pId];
-                p(1) = m_verticesDefault[5 * pId + 1];
-                p(2) = m_verticesDefault[5 * pId + 2];
-                ps.push_back(p);
-            }
-        }
-        SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btm;
-        btm.setVertexs(ps);
-        SLAM_LYJ::writePLYMesh("D:/tmp/fid.ply", btm);
-    }
-    
-    //{
-    //    std::vector<float> depthData(SCR_WIDTH * SCR_HEIGHT);
-    //    glBindTexture(GL_TEXTURE_2D, m_outDepthId);
-    //    // 正常应为 GL_DEPTH_COMPONENT32F (0x8CAC) 或 GL_DEPTH_COMPONENT24 (0x81A6)
-    //    glGetTexImage(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GL_FLOAT, depthData.data());
-    //    cv::Mat m(SCR_HEIGHT, SCR_WIDTH, CV_8UC1);
-    //    for (int i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
-    //        //if (depthData[i] != 1.0)
-    //            //std::cout << "111111" << std::endl;
-    //        int x = i % SCR_WIDTH;
-    //        int y = i / SCR_WIDTH;
-    //        float d = (depthData[i] - 0.5f) * 2;
-    //        m.at<uchar>(y, x) = static_cast<unsigned char>(d * 255);
-    //    }
-    //    cv::imshow("ddd", m);
-    //}
-
-    m_vbo.release();
-    m_ebo.release();
-    m_vao.release();
-    m_program.release();
-    m_fbo->release();
-    
 }
