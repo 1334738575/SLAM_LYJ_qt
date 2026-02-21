@@ -109,7 +109,7 @@ else()
     list(APPEND ${PROJECT_NAME}_BINARY_DIRS "${CUDA_LYJ_DIR}/../../bin\;")
 endif()
 
-list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/testLyj/GLFW/glfw-3.4.bin.WIN64/lib-vc2022;")
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/Glfw/Dll;")
 list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/Glew/bin/Release/x64;")
 list(APPEND ${PROJECT_NAME}_BINARY_DIRS "E:/anaconda3/pkgs/qt-main-5.15.2-h19c9488_10/Library/bin;")
 list(APPEND ${PROJECT_NAME}_BINARY_DIRS "${OpenCV_INSTALL_PATH}/bin;")
