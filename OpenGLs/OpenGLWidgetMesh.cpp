@@ -372,9 +372,9 @@ void OpenGLWidgetMeshAbr::renderFBO()
                 ps.push_back(p);
             }
         }
-        SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btm;
+        COMMON_LYJ::BaseTriMesh btm;
         btm.setVertexs(ps);
-        SLAM_LYJ::writePLYMesh("D:/tmp/fid.ply", btm);
+        COMMON_LYJ::writePLYMesh("D:/tmp/fid.ply", btm);
     }
 
     //{
@@ -752,7 +752,7 @@ MyOpenGLWidgetTs::~MyOpenGLWidgetTs()
 {}
 
 
-void MyOpenGLWidgetTs::setData(const std::vector<SLAM_LYJ::Pose3D>& _Tcws, const std::vector<SLAM_LYJ::PinholeCamera>& _cams, const std::vector<COMMON_LYJ::CompressedImage>& _comImgs, const std::vector<SLAM_LYJ::SLAM_LYJ_MATH::BitFlagVec>& _pValids)
+void MyOpenGLWidgetTs::setData(const std::vector<COMMON_LYJ::Pose3D>& _Tcws, const std::vector<COMMON_LYJ::PinholeCamera>& _cams, const std::vector<COMMON_LYJ::CompressedImage>& _comImgs, const std::vector<COMMON_LYJ::BitFlagVec>& _pValids)
 {
     Tcws_ = _Tcws;
     cams_ = _cams;
@@ -762,7 +762,7 @@ void MyOpenGLWidgetTs::setData(const std::vector<SLAM_LYJ::Pose3D>& _Tcws, const
     for (int i = 0; i < sz; ++i)
     {
         comImgs_[i] = const_cast<COMMON_LYJ::CompressedImage*>(&_comImgs[i]);
-        pValids_[i] = const_cast<SLAM_LYJ::SLAM_LYJ_MATH::BitFlagVec*>(&_pValids[i]);
+        pValids_[i] = const_cast<COMMON_LYJ::BitFlagVec*>(&_pValids[i]);
     }
 }
 
@@ -834,7 +834,7 @@ void MyOpenGLWidgetTs::updateMatrixAndUBO()
     mTmp(1, 3) = m_detY;
     mTmp(2, 3) = m_detZ;
     m_view = m_viewInit * mTmp;
-    SLAM_LYJ::Pose3D T = Tcws_[curId_];
+    COMMON_LYJ::Pose3D T = Tcws_[curId_];
     for (int i = 0; i < 3; ++i)
     {
         for (int j = 0; j < 3; ++j)

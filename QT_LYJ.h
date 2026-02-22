@@ -18,8 +18,8 @@ QT_LYJ_API int testOpenGLOnly();
 
 QT_LYJ_API void debugWindows(int argc, char* argv[]); 
 QT_LYJ_API int testTcws(int argc, char* argv[],
-	const SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh& _btm,
-	const std::vector<SLAM_LYJ::Pose3D>& _Tcws, const std::vector<SLAM_LYJ::PinholeCamera>& _cams, const std::vector<COMMON_LYJ::CompressedImage>& _comImgs);
+	const COMMON_LYJ::BaseTriMesh& _btm,
+	const std::vector<COMMON_LYJ::Pose3D>& _Tcws, const std::vector<COMMON_LYJ::PinholeCamera>& _cams, const std::vector<COMMON_LYJ::CompressedImage>& _comImgs);
 
 NSP_QT_LYJ_END
 

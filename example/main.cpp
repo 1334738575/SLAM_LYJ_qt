@@ -12,7 +12,7 @@
 
 
 class MyStruct
-    //class MyStruct : public SLAM_LYJ::BaseLYJ
+    //class MyStruct : public COMMON_LYJ::BaseLYJ
 {
 public:
     int id = -1;
@@ -121,7 +121,7 @@ void testRecord2DBin()
     }
     std::map<int64_t, std::vector<Mth>>& allPMs = data2DPoint.m_allPointMatches;
     {
-        uint64_t framePairId = SLAM_LYJ::SLAM_LYJ_MATH::imagePair2Int64(0, 1);
+        uint64_t framePairId = COMMON_LYJ::imagePair2Int64(0, 1);
         std::vector<Mth>& ms = allPMs[framePairId];
         ms.resize(3);
         for (int i = 0; i < 3; ++i) {
@@ -162,7 +162,7 @@ void testRecord2DBin()
     }
     std::map<int64_t, std::vector<Mth>>& allLMs = data2DLine.m_allLineMatches;
     {
-        uint64_t framePairId = SLAM_LYJ::SLAM_LYJ_MATH::imagePair2Int64(0, 1);
+        uint64_t framePairId = COMMON_LYJ::imagePair2Int64(0, 1);
         std::vector<Mth>& ms = allLMs[framePairId];
         ms.resize(3);
         for (int i = 0; i < 3; ++i) {
@@ -191,7 +191,7 @@ void testRecord2DBin()
     }
     std::map<int64_t, std::vector<Mth>>& allEMs = data2DEdge.m_allEdgeMatches;
     {
-        uint64_t framePairId = SLAM_LYJ::SLAM_LYJ_MATH::imagePair2Int64(0, 1);
+        uint64_t framePairId = COMMON_LYJ::imagePair2Int64(0, 1);
         std::vector<Mth>& ms = allEMs[framePairId];
         ms.resize(3);
         for (int i = 0; i < 3; ++i) {
@@ -214,11 +214,11 @@ void testRecord2DBin()
 int testViewTextures(int argc, char* argv[])
 {
     std::string btmPath = "D:/tmp/res_mesh.ply";
-    SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btm;
-    SLAM_LYJ::readPLYMesh(btmPath, btm);
+    COMMON_LYJ::BaseTriMesh btm;
+    COMMON_LYJ::readPLYMesh(btmPath, btm);
     int sz = 10;
-    std::vector<SLAM_LYJ::Pose3D> Tcws(sz);
-    std::vector<SLAM_LYJ::PinholeCamera> cams(sz);
+    std::vector<COMMON_LYJ::Pose3D> Tcws(sz);
+    std::vector<COMMON_LYJ::PinholeCamera> cams(sz);
     std::vector<COMMON_LYJ::CompressedImage> comImgs(sz);
     for (int i = 0; i < sz; ++i)
     {
@@ -249,18 +249,18 @@ int testViewColmap(int argc, char* argv[])
 
     int imgSz = colmapImages.size();
     imgSz = 10;
-    SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btm;
-    std::vector<SLAM_LYJ::Pose3D> Tcws(imgSz);
-    std::vector<SLAM_LYJ::PinholeCamera> cams(imgSz);
+    COMMON_LYJ::BaseTriMesh btm;
+    std::vector<COMMON_LYJ::Pose3D> Tcws(imgSz);
+    std::vector<COMMON_LYJ::PinholeCamera> cams(imgSz);
     std::vector<COMMON_LYJ::CompressedImage> comImgs(imgSz);
-    SLAM_LYJ::readPLYMesh(btmPath, btm);
+    COMMON_LYJ::readPLYMesh(btmPath, btm);
     auto& colmapCamera = colmapCameras[0];
     for (int i = 0; i < imgSz; ++i)
     {
         const auto& colmapImage = colmapImages[i];
         std::string imgName = imgDir + colmapImage.imgName;
         comImgs[i].readJPG(imgName);
-        cams[i] = SLAM_LYJ::PinholeCamera(colmapCamera.width, colmapCamera.height, colmapCamera.params);
+        cams[i] = COMMON_LYJ::PinholeCamera(colmapCamera.width, colmapCamera.height, colmapCamera.params);
         Eigen::Matrix3d Rcw = colmapImage.qcw.toRotationMatrix();
         Tcws[i].setR(Rcw);
         Tcws[i].sett(colmapImage.tcw);

@@ -182,10 +182,10 @@ public:
     explicit MyOpenGLWidgetTs(int _w, int _h, QWidget* parent = nullptr);
     ~MyOpenGLWidgetTs();
 
-    void setData(const std::vector<SLAM_LYJ::Pose3D>& _Tcws,
-        const std::vector<SLAM_LYJ::PinholeCamera>& _cams,
+    void setData(const std::vector<COMMON_LYJ::Pose3D>& _Tcws,
+        const std::vector<COMMON_LYJ::PinholeCamera>& _cams,
         const std::vector<COMMON_LYJ::CompressedImage>& _comImgs,
-        const std::vector<SLAM_LYJ::SLAM_LYJ_MATH::BitFlagVec>& _pValids);
+        const std::vector<COMMON_LYJ::BitFlagVec>& _pValids);
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
@@ -198,10 +198,10 @@ protected:
 
 
 protected:
-    std::vector<SLAM_LYJ::Pose3D> Tcws_;
-    std::vector<SLAM_LYJ::PinholeCamera> cams_;
+    std::vector<COMMON_LYJ::Pose3D> Tcws_;
+    std::vector<COMMON_LYJ::PinholeCamera> cams_;
     std::vector<COMMON_LYJ::CompressedImage*> comImgs_;
-    std::vector<SLAM_LYJ::SLAM_LYJ_MATH::BitFlagVec*> pValids_;
+    std::vector<COMMON_LYJ::BitFlagVec*> pValids_;
     int curId_ = 0;
     std::vector<uint> pValidTmp_;
     std::vector<GLuint> textures_;

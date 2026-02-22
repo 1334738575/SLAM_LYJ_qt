@@ -170,8 +170,8 @@ static int testOpenGL()
 					qDebug() << "open failed! ";
 					return;
 				}
-				SLAM_LYJ::BaseTriMesh btm;
-				SLAM_LYJ::readPLYMesh(btmPath, btm);
+				COMMON_LYJ::BaseTriMesh btm;
+				COMMON_LYJ::readPLYMesh(btmPath, btm);
 				OpenGLWindow *w = new OpenGLWindow(true, 1600, 1200, "Show mesh or obj");
 				w->changeMesh(btm.getVertexs()[0].data(), btm.getVn(), btm.getFaces()[0].vId_, btm.getFn());
 
@@ -193,8 +193,8 @@ static int testOpenGL()
 					qDebug() << "open failed! ";
 					return;
 				}
-				SLAM_LYJ::BaseTriMesh obj;
-				if (!SLAM_LYJ::readOBJMesh(btmPath, obj))
+				COMMON_LYJ::BaseTriMesh obj;
+				if (!COMMON_LYJ::readOBJMesh(btmPath, obj))
 				{
 					qDebug() << "read failed! ";
 					return;
@@ -261,10 +261,10 @@ public:
 	}
 
 	void changeMesh(float* _vtcs, unsigned long long _vSz, unsigned int* _inds, unsigned long long _iSz,
-		const std::vector<SLAM_LYJ::Pose3D>& _Tcws,
-		const std::vector<SLAM_LYJ::PinholeCamera>& _cams,
+		const std::vector<COMMON_LYJ::Pose3D>& _Tcws,
+		const std::vector<COMMON_LYJ::PinholeCamera>& _cams,
 		const std::vector<COMMON_LYJ::CompressedImage>& _comImgs,
-		const std::vector<SLAM_LYJ::SLAM_LYJ_MATH::BitFlagVec>& _pValids)
+		const std::vector<COMMON_LYJ::BitFlagVec>& _pValids)
 	{
 		openGLWidgetTs_->setVertices(_vtcs, _vSz);
 		openGLWidgetTs_->setIndices(_inds, _iSz);
@@ -276,12 +276,12 @@ private:
 	QVBoxLayout* layout_ = nullptr;
 };
 QT_LYJ_API int testTcws(int argc, char* argv[],
-	const SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh& _btm,
-	const std::vector<SLAM_LYJ::Pose3D>& _Tcws, const std::vector<SLAM_LYJ::PinholeCamera>& _cams, const std::vector<COMMON_LYJ::CompressedImage>& _comImgs)
+	const COMMON_LYJ::BaseTriMesh& _btm,
+	const std::vector<COMMON_LYJ::Pose3D>& _Tcws, const std::vector<COMMON_LYJ::PinholeCamera>& _cams, const std::vector<COMMON_LYJ::CompressedImage>& _comImgs)
 {
-	SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btm = _btm;
+	COMMON_LYJ::BaseTriMesh btm = _btm;
 	std::vector<Eigen::Vector3f> vertexs = btm.getVertexs();
-	std::vector<SLAM_LYJ::SLAM_LYJ_MATH::BaseTriFace> fs = btm.getFaces();
+	std::vector<COMMON_LYJ::BaseTriFace> fs = btm.getFaces();
 	btm.enableFCenters();
 	btm.calculateFCenters();
 	btm.enableFNormals();
@@ -303,7 +303,7 @@ QT_LYJ_API int testTcws(int argc, char* argv[],
 	CUDA_LYJ::ProjectorCache cache;
 	cache.init(PSize, fSize, w, h);
 
-	std::vector<SLAM_LYJ::SLAM_LYJ_MATH::BitFlagVec> pValids(sz);
+	std::vector<COMMON_LYJ::BitFlagVec> pValids(sz);
 	for (int i = 0; i < sz; ++i)
 	{
 		pValids[i].assign(PSize, false);
@@ -311,7 +311,7 @@ QT_LYJ_API int testTcws(int argc, char* argv[],
 	for(int i=0;i<sz;++i)
 	{
 		const auto& pinCam = _cams[0];
-		const SLAM_LYJ::Pose3D& TcwP = _Tcws[i];
+		const COMMON_LYJ::Pose3D& TcwP = _Tcws[i];
 		Eigen::Matrix<float, 3, 4> Tcw34;
 	    Tcw34.block(0, 0, 3, 3) = TcwP.getR().cast<float>();
 	    Tcw34.block(0, 3, 3, 1) = TcwP.gett().cast<float>();
@@ -339,9 +339,9 @@ QT_LYJ_API int testTcws(int argc, char* argv[],
 		//	if (pValids[i][j])
 		//		Pws.push_back(vertexs[j]);
 		//}
-		//SLAM_LYJ::SLAM_LYJ_MATH::BaseTriMesh btmTmp;
+		//COMMON_LYJ::BaseTriMesh btmTmp;
 		//btmTmp.setVertexs(Pws);
-		//SLAM_LYJ::writePLYMesh("D:/tmp/pValid" + std::to_string(i) + ".ply", btmTmp);
+		//COMMON_LYJ::writePLYMesh("D:/tmp/pValid" + std::to_string(i) + ".ply", btmTmp);
 	 //   cv::Mat depthsMShow(h, w, CV_8UC1);
 	 //   depthsMShow.setTo(cv::Scalar(0));
 	 //   std::vector<Eigen::Vector3f> Pcs;
