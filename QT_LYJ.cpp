@@ -362,9 +362,9 @@ QT_LYJ_API int testTcws(int argc, char* argv[],
 	 //           depthsMShow.at<uchar>(ii, j) = d * 20 < 255 ? (char)(d * 20) : 255;
 	 //       }
 	 //   }
-		//cv::imwrite("D:/tmp/" + std::to_string(i) + ".png", depthsMShow);
-	 //   //cv::imshow("depth", depthsMShow);
-	 //   //cv::waitKey();
+		////cv::imwrite("D:/tmp/" + std::to_string(i) + ".png", depthsMShow);
+	 //   cv::imshow("depth", depthsMShow);
+	 //   cv::waitKey();
 		continue;
 	}
 

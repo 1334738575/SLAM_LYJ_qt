@@ -9,6 +9,7 @@
 #include <IO/MeshIO.h>
 #include <IO/SimpleIO.h>
 #include <common/CommonAlgorithm.h>
+#include <STLPlus/include/file_system.h>
 
 
 class MyStruct
@@ -213,24 +214,34 @@ void testRecord2DBin()
 
 int testViewTextures(int argc, char* argv[])
 {
-    std::string btmPath = "D:/tmp/res_mesh.ply";
+    //std::string btmPath = "D:/tmp/res_mesh.ply";
+    std::string btmPath = "D:/data/tex/1.ply";
     COMMON_LYJ::BaseTriMesh btm;
     COMMON_LYJ::readPLYMesh(btmPath, btm);
+    auto& ps = btm.getVertexs();
+    for (int i = 0; i < btm.getVn(); ++i)
+    {
+        ps[i] /= 1000;
+    }
     int sz = 10;
+    sz = stlplus::folder_files("D:/data/tex/Tcws2").size();
     std::vector<COMMON_LYJ::Pose3D> Tcws(sz);
     std::vector<COMMON_LYJ::PinholeCamera> cams(sz);
     std::vector<COMMON_LYJ::CompressedImage> comImgs(sz);
     for (int i = 0; i < sz; ++i)
     {
-        std::string imgPath = "D:/tmp/testImages/" + std::to_string(i + 11) + ".png";
-        cv::Mat m = cv::imread(imgPath);
-        comImgs[i].compressCVMat(m);
-        //std::string imgPath2 = "D:/tmp/" + std::to_string(i + 11) + ".jpg";
-        //cv::imwrite(imgPath2, m);
-        //comImgs[i].readJPG(imgPath2);
-        std::string TPath = "D:/tmp/testTcws/RT_" + std::to_string(i + 11) + ".txt";
+        //std::string imgPath = "D:/tmp/testImages/" + std::to_string(i + 11) + ".png";
+        //cv::Mat m = cv::imread(imgPath);
+        //comImgs[i].compressCVMat(m);
+        //std::string TPath = "D:/tmp/testTcws/RT_" + std::to_string(i + 11) + ".txt";
+        //COMMON_LYJ::readT34(TPath, Tcws[i]);
+        //std::string camPath = "D:/tmp/testCam.txt";
+        std::string imgPath2 = "D:/data/tex/images/" + std::to_string(i) + ".jpg";
+        comImgs[i].readJPG(imgPath2);
+        std::string TPath = "D:/data/tex/Tcws2/rt_" + std::to_string(i) + ".txt";
         COMMON_LYJ::readT34(TPath, Tcws[i]);
-        std::string camPath = "D:/tmp/testCam.txt";
+        Tcws[i].gett() /= 1000;
+        std::string camPath = "D:/data/tex/cam.txt";
         COMMON_LYJ::readPinCamera(camPath, cams[i]);
     }
     QT_LYJ::testTcws(argc, argv, btm, Tcws, cams, comImgs);
@@ -269,11 +280,25 @@ int testViewColmap(int argc, char* argv[])
     return 0;
 }
 
+int testViewReconstruct(int argc, char* argv[])
+{
+    using namespace COMMON_LYJ;
+    std::string filePath = "D:/tmp/reconstructVisualWithMeshComView.bin";
+    COMMON_LYJ::BaseTriMesh btm;
+    std::vector<COMMON_LYJ::CompressedImage> imgs;
+    std::vector<COMMON_LYJ::Pose3D> Tcws;
+    std::vector<COMMON_LYJ::PinholeCamera> cams;
+    COMMON_LYJ::readBinFile<BaseTriMesh, std::vector<CompressedImage>, std::vector<Pose3D>, std::vector<PinholeCamera>>(filePath, btm, imgs, Tcws, cams);
+    QT_LYJ::testTcws(argc, argv, btm, Tcws, cams, imgs);
+    return 0;
+}
+
 int main(int argc, char* argv[])
 {
-    return testViewColmap(argc, argv);
+    //return testViewReconstruct(argc, argv);
+    //return testViewColmap(argc, argv);
 
-    //return testViewTextures(argc, argv);
+    return testViewTextures(argc, argv);
 
     return QT_LYJ::testQT(argc, argv);
 

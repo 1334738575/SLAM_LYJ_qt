@@ -124,6 +124,7 @@ list(APPEND ${PROJECT_NAME}_BINARY_DIRS "E:/anaconda3/pkgs/zstd-1.5.5-hd43e919_2
 list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/flann/bin\;")
 list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/lz4/bin\;")
 list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/libjpeg/bin\;")
+list(APPEND ${PROJECT_NAME}_BINARY_DIRS "D:/SLAM_LYJ/dependencies/sqlite3/bin\;")
 message(STATUS ${${PROJECT_NAME}_BINARY_DIRS})
 
 # list(APPEND ${PROJECT_NAME}_BINARY_DIRS )
