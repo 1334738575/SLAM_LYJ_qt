@@ -224,7 +224,7 @@ int testViewTextures(int argc, char* argv[])
         ps[i] /= 1000;
     }
     int sz = 10;
-    sz = stlplus::folder_files("D:/data/tex/Tcws2").size();
+    sz = stlplus::folder_files("D:/data/tex/Tcws3").size();
     std::vector<COMMON_LYJ::Pose3D> Tcws(sz);
     std::vector<COMMON_LYJ::PinholeCamera> cams(sz);
     std::vector<COMMON_LYJ::CompressedImage> comImgs(sz);
@@ -238,7 +238,7 @@ int testViewTextures(int argc, char* argv[])
         //std::string camPath = "D:/tmp/testCam.txt";
         std::string imgPath2 = "D:/data/tex/images/" + std::to_string(i) + ".jpg";
         comImgs[i].readJPG(imgPath2);
-        std::string TPath = "D:/data/tex/Tcws2/rt_" + std::to_string(i) + ".txt";
+        std::string TPath = "D:/data/tex/Tcws3/rt_" + std::to_string(i) + ".txt";
         COMMON_LYJ::readT34(TPath, Tcws[i]);
         Tcws[i].gett() /= 1000;
         std::string camPath = "D:/data/tex/cam.txt";
