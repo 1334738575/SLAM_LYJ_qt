@@ -5,7 +5,7 @@
 #include <IO/MeshIO.h>
 
 /********************************************OpenGLWidgetMeshAbr***************************************************/
-OpenGLWidgetMeshAbr::OpenGLWidgetMeshAbr(int _w, int _h, QWidget *parent)
+OpenGLWidgetMeshAbr::OpenGLWidgetMeshAbr(int _w, int _h, QWidget* parent)
     : m_w(_w), m_h(_h), QOpenGLWidget(parent)
 {
     // 设置焦点策略：可通过鼠标/键盘获取焦点
@@ -29,7 +29,7 @@ OpenGLWidgetMeshAbr::~OpenGLWidgetMeshAbr()
 {
     m_vao.destroy();
     m_vbo.destroy();
-    m_ebo.destroy(); 
+    m_ebo.destroy();
     if (m_fbo) delete m_fbo;
     m_screenVAO.destroy();
     m_screenVBO.destroy();
@@ -88,8 +88,10 @@ void OpenGLWidgetMeshAbr::mouseMoveEvent(QMouseEvent* event)
     {
         float dx = event->x() - m_lastPos.x();
         float dy = event->y() - m_lastPos.y();
-        m_detXRot -= dy;
-        m_detYRot += dx;
+        QMatrix4x4 delta;
+        delta.rotate(dx, QVector3D(0.f, 1.0f, 0.0f));
+        delta.rotate(dy, QVector3D(1.f, 0.0f, 0.0f));
+        m_viewRotation = delta * m_viewRotation;
         m_lastPos = event->pos();
         update();
     }
@@ -103,11 +105,22 @@ void OpenGLWidgetMeshAbr::mouseMoveEvent(QMouseEvent* event)
         update();
     }
 }
+void OpenGLWidgetMeshAbr::mouseDoubleClickEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton)
+    {
+        updateRotationCenter(event->pos());
+        update();
+    }
+}
 void OpenGLWidgetMeshAbr::mouseReleaseEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::LeftButton)
     {
         m_isPressLeft = false;
+    }
+    else if (event->button() == Qt::RightButton)
+    {
         m_isPressRight = false;
     }
 }
@@ -258,7 +271,7 @@ void OpenGLWidgetMeshAbr::updateViewInit()
     uint fId = fids[(m_h - curY - 1) * m_w + curX];
     if (fId == UINT_MAX)
         return;
-    float fx =0, fy=0, fz=0;
+    float fx = 0, fy = 0, fz = 0;
     for (int i = 0; i < 3; ++i)
     {
         fx += m_vertices[m_indices[fId * 3 + i] + 0];
@@ -272,10 +285,31 @@ void OpenGLWidgetMeshAbr::updateViewInit()
 
     return;
 }
+void OpenGLWidgetMeshAbr::updateRotationCenter(const QPoint& pos)
+{
+    if (pos.x() < 0 || pos.x() >= m_w || pos.y() < 0 || pos.y() >= m_h || fids.empty() || !m_vertices || !m_indices)
+        return;
+
+    uint fId = fids[(m_h - pos.y() - 1) * m_w + pos.x()];
+    if (fId == UINT_MAX || fId * 3 + 2 >= static_cast<uint>(m_iSize))
+        return;
+
+    QVector3D center(0.f, 0.f, 0.f);
+    for (int i = 0; i < 3; ++i)
+    {
+        const uint pId = m_indices[fId * 3 + i];
+        if (pId * m_vtxStep + 2 >= static_cast<uint>(m_vSize))
+            return;
+        center += QVector3D(m_vertices[pId * m_vtxStep], m_vertices[pId * m_vtxStep + 1], m_vertices[pId * m_vtxStep + 2]);
+    }
+    m_rotationCenter = center / 3.0f;
+}
 void OpenGLWidgetMeshAbr::initMatrix()
 {
     m_model.setToIdentity();
     m_viewInit.lookAt(QVector3D(0, 0, -3), QVector3D(0, 0, 0), QVector3D(0, 1, 0));
+    m_viewRotation.setToIdentity();
+    m_rotationCenter = QVector3D(0.f, 0.f, 0.f);
     //QMatrix4x4 QMatrix4x4::lookAt(
     //    const QVector3D & eye,    // 摄像机位置
     //    const QVector3D & center, // 观察目标点
@@ -529,13 +563,13 @@ OpenGLWidgetPly::OpenGLWidgetPly(int _w, int _h, QWidget* parent)
     m_fPath = sPath + "/fShaderMesh.frag";
 
     m_verticesDefault = std::vector<float>{
-    -0.5f, -0.5f, -0.5f,  
-     0.5f, -0.5f, -0.5f,  
-     0.5f,  0.5f, -0.5f,  
-    -0.5f,  0.5f, -0.5f,  
-    -0.5f, -0.5f,  0.5f,  
-     0.5f, -0.5f,  0.5f,  
-     0.5f,  0.5f,  0.5f,  
+    -0.5f, -0.5f, -0.5f,
+     0.5f, -0.5f, -0.5f,
+     0.5f,  0.5f, -0.5f,
+    -0.5f,  0.5f, -0.5f,
+    -0.5f, -0.5f,  0.5f,
+     0.5f, -0.5f,  0.5f,
+     0.5f,  0.5f,  0.5f,
     -0.5f,  0.5f,  0.5f
     };
     m_indicesDefault = std::vector<unsigned int>{
@@ -606,11 +640,12 @@ void OpenGLWidgetPly::updateMatrixAndUBO()
     //updateViewInit();
     QMatrix4x4 mTmp;
     mTmp.setToIdentity();
-    mTmp.rotate(m_detYRot, QVector3D(0.f, 1.0f, 0.0f));
-    mTmp.rotate(m_detXRot, QVector3D(1.f, 0.0f, 0.0f));
-    mTmp(0, 3) = -m_detX;
-    mTmp(1, 3) = m_detY;
-    mTmp(2, 3) = m_detZ;
+    mTmp.translate(m_rotationCenter);
+    mTmp *= m_viewRotation;
+    mTmp.translate(-m_rotationCenter);
+    QMatrix4x4 pan;
+    pan.translate(-m_detX, m_detY, m_detZ);
+    mTmp = pan * mTmp;
     m_view = m_viewInit * mTmp;
     // 传递矩阵到Shader
     m_program.setUniformValue("model", m_model);
@@ -637,7 +672,7 @@ void OpenGLWidgetPly::drawFBO()
 
 /********************************************OpenGLWidgetObj***************************************************/
 OpenGLWidgetObj::OpenGLWidgetObj(int _w, int _h, QWidget* parent)
-    :OpenGLWidgetPly(_w, _h,  parent)
+    :OpenGLWidgetPly(_w, _h, parent)
 {
     m_vtxStep = 5;
     m_pointStep = 3;
@@ -749,7 +784,8 @@ MyOpenGLWidgetTs::MyOpenGLWidgetTs(int _w, int _h, QWidget* parent)
     m_fPath = sPath + "/fShaderFBO.frag";
 }
 MyOpenGLWidgetTs::~MyOpenGLWidgetTs()
-{}
+{
+}
 
 
 void MyOpenGLWidgetTs::setData(const std::vector<COMMON_LYJ::Pose3D>& _Tcws, const std::vector<COMMON_LYJ::PinholeCamera>& _cams, const std::vector<COMMON_LYJ::CompressedImage>& _comImgs, const std::vector<COMMON_LYJ::BitFlagVec>& _pValids)
@@ -828,11 +864,12 @@ void MyOpenGLWidgetTs::updateMatrixAndUBO()
     //updateViewInit();
     QMatrix4x4 mTmp;
     mTmp.setToIdentity();
-    mTmp.rotate(m_detYRot, QVector3D(0.f, 1.0f, 0.0f));
-    mTmp.rotate(m_detXRot, QVector3D(1.f, 0.0f, 0.0f));
-    mTmp(0, 3) = -m_detX;
-    mTmp(1, 3) = m_detY;
-    mTmp(2, 3) = m_detZ;
+    mTmp.translate(m_rotationCenter);
+    mTmp *= m_viewRotation;
+    mTmp.translate(-m_rotationCenter);
+    QMatrix4x4 pan;
+    pan.translate(-m_detX, m_detY, m_detZ);
+    mTmp = pan * mTmp;
     m_view = m_viewInit * mTmp;
     COMMON_LYJ::Pose3D T = Tcws_[curId_];
     for (int i = 0; i < 3; ++i)

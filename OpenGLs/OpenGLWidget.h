@@ -10,13 +10,14 @@
 #include <QImage>
 #include <QOpenGLTexture>
 #include <QTimer>
+#include <QMatrix4x4>
 #include <array>
 #include <vector>
 #include <Eigen/Core>
 #include <Eigen/Eigen>
 #include "QT_LYJ_Defines.h"
 
-namespace QT_LYJ 
+namespace QT_LYJ
 {
 	void transform(const float* _Rwc, const float* _twc,
 		const float& _xc, const float& _yc, const float& _zc,
@@ -69,12 +70,16 @@ namespace QT_LYJ
 
 		void mousePressEvent(QMouseEvent* event) override;
 		void mouseMoveEvent(QMouseEvent* event) override;
+		void mouseDoubleClickEvent(QMouseEvent* event) override;
 		void mouseReleaseEvent(QMouseEvent* event) override;
 		void keyPressEvent(QKeyEvent* event) override;
 		void keyReleaseEvent(QKeyEvent* event) override;
 		void wheelEvent(QWheelEvent* event) override;
 
 	private:
+		QMatrix4x4 viewMatrix() const;
+		void updateRotationCenter(const QPoint& pos);
+
 		struct LineInds
 		{
 			LineInds() {}
@@ -122,6 +127,8 @@ namespace QT_LYJ
 		float m_detX = 0;             // 缩放比例
 		float m_detY = 0;             // 缩放比例
 		float m_detZ = 0;             // 缩放比例
+		QMatrix4x4 m_viewRotation;
+		QVector3D m_rotationCenter;
 		bool m_isPressLeft;          // 鼠标是否按下
 		bool m_isPressRight;          // 鼠标是否按下
 		QPoint m_lastPos;          // 上一个鼠标位置
@@ -167,12 +174,16 @@ namespace QT_LYJ
 
 		void mousePressEvent(QMouseEvent* event) override;
 		void mouseMoveEvent(QMouseEvent* event) override;
+		void mouseDoubleClickEvent(QMouseEvent* event) override;
 		void mouseReleaseEvent(QMouseEvent* event) override;
 		void keyPressEvent(QKeyEvent* event) override;
 		void keyReleaseEvent(QKeyEvent* event) override;
 		void wheelEvent(QWheelEvent* event) override;
 
 	private:
+		QMatrix4x4 viewMatrix() const;
+		void updateRotationCenter(const QPoint& pos);
+
 		QVector<QVector3D> points; // 存储三维点的数组
 		float m_xRot = 0;              // 旋转角度
 		float m_yRot = 0;              // 旋转角度
@@ -180,6 +191,8 @@ namespace QT_LYJ
 		float m_detX = 0;             // 缩放比例
 		float m_detY = 0;             // 缩放比例
 		float m_detZ = 0;             // 缩放比例
+		QMatrix4x4 m_viewRotation;
+		QVector3D m_rotationCenter;
 		bool m_isPressLeft;          // 鼠标是否按下
 		bool m_isPressRight;          // 鼠标是否按下
 		QPoint m_lastPos;          // 上一个鼠标位置

@@ -214,8 +214,23 @@ void testRecord2DBin()
 
 int testViewTextures(int argc, char* argv[])
 {
-    //std::string btmPath = "D:/tmp/res_mesh.ply";
-    std::string btmPath = "D:/data/tex/1.ply";
+    //std::string ddd = "D:/data/tex/";
+    //std::string btmPath = ddd + "1.ply";
+
+    std::string ddd = "D:/data/1778838919807-texZhanting/";
+    std::string btmPath = ddd + "/output/raw.ply";
+    std::string imgDir = ddd + "/texZhanting/";
+    std::string rtDir = ddd + "/output/Tcws3";
+    std::string camPath = ddd + "/texZhanting/cam_0.txt";
+
+
+    std::ifstream camf(camPath);
+    std::vector<double> camParams(4);
+    for (int i = 0; i < 4; ++i)
+    {
+        std::string s1, s2;
+        camf >> s1 >> s2 >> camParams[i];
+    }
     COMMON_LYJ::BaseTriMesh btm;
     COMMON_LYJ::readPLYMesh(btmPath, btm);
     auto& ps = btm.getVertexs();
@@ -224,25 +239,21 @@ int testViewTextures(int argc, char* argv[])
         ps[i] /= 1000;
     }
     int sz = 10;
-    sz = stlplus::folder_files("D:/data/tex/Tcws3").size();
+    sz = stlplus::folder_files(rtDir).size();
     std::vector<COMMON_LYJ::Pose3D> Tcws(sz);
     std::vector<COMMON_LYJ::PinholeCamera> cams(sz);
     std::vector<COMMON_LYJ::CompressedImage> comImgs(sz);
-    for (int i = 0; i < sz; ++i)
+    for (size_t i = 0; i < sz; ++i)
     {
-        //std::string imgPath = "D:/tmp/testImages/" + std::to_string(i + 11) + ".png";
-        //cv::Mat m = cv::imread(imgPath);
-        //comImgs[i].compressCVMat(m);
-        //std::string TPath = "D:/tmp/testTcws/RT_" + std::to_string(i + 11) + ".txt";
-        //COMMON_LYJ::readT34(TPath, Tcws[i]);
-        //std::string camPath = "D:/tmp/testCam.txt";
-        std::string imgPath2 = "D:/data/tex/images/" + std::to_string(i) + ".jpg";
-        comImgs[i].readJPG(imgPath2);
-        std::string TPath = "D:/data/tex/Tcws3/rt_" + std::to_string(i) + ".txt";
+        cv::Mat img = cv::imread(imgDir + std::to_string(i) + ".jpg");
+        cv::pyrDown(img, img);
+        comImgs[i].compressCVMat(img);
+        std::string TPath = rtDir + "/rt_" + std::to_string(i) + ".txt";
         COMMON_LYJ::readT34(TPath, Tcws[i]);
         Tcws[i].gett() /= 1000;
-        std::string camPath = "D:/data/tex/cam.txt";
-        COMMON_LYJ::readPinCamera(camPath, cams[i]);
+        COMMON_LYJ::PinholeCamera cam(comImgs[0].getWidth(), comImgs[0].getheight(), \
+            camParams[0] / 2, camParams[1] / 2, camParams[2] / 2, camParams[3] / 2);
+        cams[i] = cam;
     }
     QT_LYJ::testTcws(argc, argv, btm, Tcws, cams, comImgs);
     return 0;

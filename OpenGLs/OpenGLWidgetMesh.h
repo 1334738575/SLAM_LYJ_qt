@@ -22,7 +22,7 @@ class OpenGLWidgetMeshAbr : public QOpenGLWidget, protected QOpenGLFunctions_4_3
 {
     Q_OBJECT
 public:
-    explicit OpenGLWidgetMeshAbr(int _w, int _h, QWidget *parent = nullptr);
+    explicit OpenGLWidgetMeshAbr(int _w, int _h, QWidget* parent = nullptr);
     ~OpenGLWidgetMeshAbr();
 
     /// <summary>
@@ -30,7 +30,7 @@ public:
     /// </summary>
     /// <param name="_vtcs"指针></param>
     /// <param name="_sz"顶点数></param>
-    virtual void setVertices(const float* const _vtcs, unsigned long long _sz)=0;
+    virtual void setVertices(const float* const _vtcs, unsigned long long _sz) = 0;
     /// <summary>
     /// 设置顶点及纹理
     /// </summary>
@@ -38,13 +38,13 @@ public:
     /// <param name="_uvs"></param>
     /// <param name="_img"></param>
     /// <param name="_sz"></param>
-    virtual void setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz)=0;
+    virtual void setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz) = 0;
     /// <summary>
     /// 设置面片
     /// </summary>
     /// <param name="_inds"指针></param>
     /// <param name="_sz"面片数></param>
-    virtual void setIndices(unsigned int* _inds, unsigned long long _sz)=0;
+    virtual void setIndices(unsigned int* _inds, unsigned long long _sz) = 0;
 
 protected:
     void initializeGL() override;
@@ -53,6 +53,7 @@ protected:
 
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseDoubleClickEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
@@ -76,17 +77,18 @@ protected:
     void cvMat3CToQImageRGB32(const cv::Mat& mat, QImage& qimg);
 private:
     void initJustRenderProgram();
+    void updateRotationCenter(const QPoint& pos);
 
 
 protected:
     int m_w = 0;
-    int m_h = 0;    
+    int m_h = 0;
     std::string m_vPath;
     std::string m_fPath;
 
     QOpenGLShaderProgram m_program;
     QOpenGLBuffer m_vbo{ QOpenGLBuffer::VertexBuffer };
-    QOpenGLBuffer m_ebo{QOpenGLBuffer::IndexBuffer};
+    QOpenGLBuffer m_ebo{ QOpenGLBuffer::IndexBuffer };
     QOpenGLVertexArrayObject m_vao;
     QOpenGLFramebufferObject* m_fbo = nullptr;       // 自定义帧缓冲
     GLuint m_outColorId = 0;                            // 颜色纹理ID（GL_COLOR_ATTACHMENT0）
@@ -103,6 +105,8 @@ protected:
     QMatrix4x4 m_viewInit;
     QMatrix4x4 m_view;
     QMatrix4x4 m_model;
+    QMatrix4x4 m_viewRotation;
+    QVector3D m_rotationCenter;
     //float m_angle = 0.0f;
     //QTimer m_timer;
     QImage m_texture;
@@ -119,14 +123,15 @@ protected:
     bool m_bDrawFaces = false;
     bool m_bDrawTexture = false;
 
+    int m_vtxStep = 3;
+    int m_pointStep = 3;
+    int m_uvStep = 0;
     float* m_vertices = nullptr;
     int m_vSize = 0;
     unsigned int* m_indices = nullptr;
     int m_iSize = 0;
 
 
-    float m_detXRot = 0;              // 旋转角度x，绑定鼠标左键的横向
-    float m_detYRot = 0;              // 旋转角度y，绑定鼠标左键的纵向
     float m_detX = 0;             // X移动，绑定鼠标右键的横向
     float m_detY = 0;             // Y移动，绑定鼠标右键的纵向
     float m_detZ = 0;             // Z移动，绑定鼠标滚轴
@@ -155,10 +160,6 @@ protected:
 
 
 
-protected:
-    int m_vtxStep = 0;
-    int m_pointStep = 0;
-    int m_uvStep = 0;
 };
 
 class OpenGLWidgetObj : public OpenGLWidgetPly
@@ -189,8 +190,8 @@ public:
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
-    
-    
+
+
     void setAttribute() override;
     void initTexture() override;
     void updateMatrixAndUBO() override;

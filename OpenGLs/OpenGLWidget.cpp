@@ -2,7 +2,9 @@
 #include <GL/gl.h>       // OpenGL
 #include <GL/glu.h>      // OpenGL Utility Library
 #include <QMatrix4x4>
+#include <QPointF>
 #include <iostream>
+#include <limits>
 #include <common/CommonAlgorithm.h>
 
 namespace QT_LYJ {
@@ -26,6 +28,11 @@ namespace QT_LYJ {
 		_nzw = _Rwc[2] * _nxc + _Rwc[5] * _nyc + _Rwc[8] * _nzc;
 	}
 
+	static QPointF toScreenPos(const QVector3D& p, int width, int height)
+	{
+		return QPointF((p.x() + 1.0f) * 0.5f * width, (1.0f - p.y()) * 0.5f * height);
+	}
+
 	OpenGLWidgetLyj::OpenGLWidgetLyj(QWidget* parent)
 		: QOpenGLWidget(parent),
 		m_xRot(0), m_yRot(0), m_detX(0), m_detY(0), m_detZ(0),
@@ -34,7 +41,8 @@ namespace QT_LYJ {
 		setFocusPolicy(Qt::StrongFocus); // 设置焦点策略，可以接收键盘事件
 	}
 	OpenGLWidgetLyj::~OpenGLWidgetLyj()
-	{}
+	{
+	}
 
 	void OpenGLWidgetLyj::addPoint(const float x, const float y, const float z)
 	{
@@ -272,11 +280,7 @@ namespace QT_LYJ {
 		glLoadIdentity();
 
 		//view
-		QMatrix4x4 view;
-		view.scale(m_scale);
-		view.translate(m_detX, m_detY, m_detZ);
-		view.rotate(m_xRot, 1.0f, 0.0f, 0.0f);
-		view.rotate(m_yRot, 0.0f, 1.0f, 0.0f);
+		QMatrix4x4 view = viewMatrix();
 		glLoadMatrixf(view.constData());
 		//glTranslatef(m_detX * m_scale, m_detY * m_scale, m_detZ * m_scale);
 		//glRotatef(m_xRot, 1.0f, 0.0f, 0.0f); // 绕X轴旋转
@@ -359,6 +363,42 @@ namespace QT_LYJ {
 		}
 
 	}
+	QMatrix4x4 OpenGLWidgetLyj::viewMatrix() const
+	{
+		QMatrix4x4 view;
+		view.scale(m_scale);
+		view.translate(m_detX, m_detY, m_detZ);
+		view.translate(m_rotationCenter);
+		view *= m_viewRotation;
+		view.translate(-m_rotationCenter);
+		return view;
+	}
+	void OpenGLWidgetLyj::updateRotationCenter(const QPoint& pos)
+	{
+		if (m_points.empty())
+			return;
+
+		const QMatrix4x4 view = viewMatrix();
+		const float selectRadius2 = 30.0f * 30.0f;
+		float bestDist2 = std::numeric_limits<float>::max();
+		int bestIndex = -1;
+
+		for (int i = 0; i < static_cast<int>(m_points.size()); ++i)
+		{
+			const QPointF screenPos = toScreenPos(view.map(m_points[i]), width(), height());
+			const float dx = static_cast<float>(screenPos.x() - pos.x());
+			const float dy = static_cast<float>(screenPos.y() - pos.y());
+			const float dist2 = dx * dx + dy * dy;
+			if (dist2 < bestDist2)
+			{
+				bestDist2 = dist2;
+				bestIndex = i;
+			}
+		}
+
+		if (bestIndex >= 0 && bestDist2 <= selectRadius2)
+			m_rotationCenter = m_points[bestIndex];
+	}
 	void OpenGLWidgetLyj::mousePressEvent(QMouseEvent* event)
 	{
 		if (event->button() == Qt::LeftButton)
@@ -383,8 +423,10 @@ namespace QT_LYJ {
 		{
 			float dx = event->x() - m_lastPos.x();
 			float dy = event->y() - m_lastPos.y();
-			m_xRot += dy;
-			m_yRot += dx;
+			QMatrix4x4 delta;
+			delta.rotate(dx, 0.0f, 1.0f, 0.0f);
+			delta.rotate(dy, 1.0f, 0.0f, 0.0f);
+			m_viewRotation = delta * m_viewRotation;
 			m_lastPos = event->pos();
 			update();
 		}
@@ -398,11 +440,22 @@ namespace QT_LYJ {
 			update();
 		}
 	}
+	void OpenGLWidgetLyj::mouseDoubleClickEvent(QMouseEvent* event)
+	{
+		if (event->button() == Qt::LeftButton)
+		{
+			updateRotationCenter(event->pos());
+			update();
+		}
+	}
 	void OpenGLWidgetLyj::mouseReleaseEvent(QMouseEvent* event)
 	{
 		if (event->button() == Qt::LeftButton)
 		{
 			m_isPressLeft = false;
+		}
+		else if (event->button() == Qt::RightButton)
+		{
 			m_isPressRight = false;
 		}
 	}
@@ -551,11 +604,8 @@ namespace QT_LYJ {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // 清除颜色和深度缓冲
 
 		//view
-		QMatrix4x4 view;
-		view.rotate(m_xRot, 1.0f, 0.0f, 0.0f);
-		view.rotate(m_yRot, 0.0f, 1.0f, 0.0f);
+		QMatrix4x4 view = viewMatrix();
 		glLoadMatrixf(view.constData());
-		glTranslatef(m_detX * m_scale, m_detY * m_scale, m_detZ * m_scale);
 		//glRotatef(m_xRot, 1.0f, 0.0f, 0.0f); // 绕X轴旋转
 		//glRotatef(m_yRot, 0.0f, 1.0f, 0.0f); // 绕Y轴旋转
 
@@ -625,6 +675,42 @@ namespace QT_LYJ {
 
 	}
 
+	QMatrix4x4 OpenGLWidget::viewMatrix() const
+	{
+		QMatrix4x4 view;
+		view.scale(m_scale);
+		view.translate(m_detX, m_detY, m_detZ);
+		view.translate(m_rotationCenter);
+		view *= m_viewRotation;
+		view.translate(-m_rotationCenter);
+		return view;
+	}
+	void OpenGLWidget::updateRotationCenter(const QPoint& pos)
+	{
+		if (points.isEmpty())
+			return;
+
+		const QMatrix4x4 view = viewMatrix();
+		const float selectRadius2 = 30.0f * 30.0f;
+		float bestDist2 = std::numeric_limits<float>::max();
+		int bestIndex = -1;
+
+		for (int i = 0; i < points.size(); ++i)
+		{
+			const QPointF screenPos = toScreenPos(view.map(points[i]), width(), height());
+			const float dx = static_cast<float>(screenPos.x() - pos.x());
+			const float dy = static_cast<float>(screenPos.y() - pos.y());
+			const float dist2 = dx * dx + dy * dy;
+			if (dist2 < bestDist2)
+			{
+				bestDist2 = dist2;
+				bestIndex = i;
+			}
+		}
+
+		if (bestIndex >= 0 && bestDist2 <= selectRadius2)
+			m_rotationCenter = points[bestIndex];
+	}
 	void OpenGLWidget::mousePressEvent(QMouseEvent* event)
 	{
 		if (event->button() == Qt::LeftButton)
@@ -650,8 +736,10 @@ namespace QT_LYJ {
 		{
 			float dx = event->x() - m_lastPos.x();
 			float dy = event->y() - m_lastPos.y();
-			m_xRot += dy;
-			m_yRot += dx;
+			QMatrix4x4 delta;
+			delta.rotate(dx, 0.0f, 1.0f, 0.0f);
+			delta.rotate(dy, 1.0f, 0.0f, 0.0f);
+			m_viewRotation = delta * m_viewRotation;
 			m_lastPos = event->pos();
 			update();
 		}
@@ -666,11 +754,23 @@ namespace QT_LYJ {
 		}
 	}
 
+	void OpenGLWidget::mouseDoubleClickEvent(QMouseEvent* event)
+	{
+		if (event->button() == Qt::LeftButton)
+		{
+			updateRotationCenter(event->pos());
+			update();
+		}
+	}
+
 	void OpenGLWidget::mouseReleaseEvent(QMouseEvent* event)
 	{
 		if (event->button() == Qt::LeftButton)
 		{
 			m_isPressLeft = false;
+		}
+		else if (event->button() == Qt::RightButton)
+		{
 			m_isPressRight = false;
 		}
 	}
