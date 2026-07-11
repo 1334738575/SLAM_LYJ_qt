@@ -21,7 +21,7 @@ NSP_QT_LYJ_BEGIN
 static int testButton()
 {
 	int argc = 0;
-	char **argv = nullptr;
+	char** argv = nullptr;
 	QApplication app(argc, argv);
 	QPushButton button("Hello, Qt!");
 	button.resize(200, 100);
@@ -31,7 +31,7 @@ static int testButton()
 static int testLabel()
 {
 	int argc = 0;
-	char **argv = nullptr;
+	char** argv = nullptr;
 	QApplication app(argc, argv);
 	QLabel label("Hello, Qt!");
 	label.resize(200, 100);
@@ -41,7 +41,7 @@ static int testLabel()
 static int testImage()
 {
 	int argc = 0;
-	char **argv = nullptr;
+	char** argv = nullptr;
 	QApplication app(argc, argv);
 	QLabel label;
 	QPixmap pixmap("D:/testLyj/build/Release/down.png");
@@ -66,13 +66,14 @@ public:
 	OpenGLWindow(bool bPly, int _w = 800, int _h = 600, std::string _title = "OpenGL Window", QWidget* parent = nullptr) : QDialog(parent)
 	{
 		setWindowTitle(QString::fromStdString(_title));
-		setFixedSize(_w, _h);
+		resize(_w, _h);
 
-		if(bPly)
+		if (bPly)
 			openGLWidget_ = new OpenGLWidgetPly(_w, _h, this);
 		else
 			openGLWidget_ = new OpenGLWidgetObj(_w, _h, this);
 		layout_ = new QVBoxLayout(this);
+		layout_->setContentsMargins(0, 0, 0, 0);
 		layout_->addWidget(openGLWidget_);
 	}
 
@@ -116,12 +117,12 @@ static int testOpenGL()
 	bool openGLByBotton = true;
 
 	int argc = 0;
-	char **argv = nullptr;
+	char** argv = nullptr;
 	QApplication app(argc, argv);
 
 	if (justOpenGL)
 	{
-		OpenGLWidget *w = new OpenGLWidget();
+		OpenGLWidget* w = new OpenGLWidget();
 		w->resize(800, 600);
 		w->show();
 		return app.exec();
@@ -132,17 +133,17 @@ static int testOpenGL()
 		QWidget window;
 		window.setWindowTitle("QT_LYJ");
 		// qgridlayout qformlayout
-		QVBoxLayout *layout = new QVBoxLayout(&window);
+		QVBoxLayout* layout = new QVBoxLayout(&window);
 
-		OpenGLWidget *w = new OpenGLWidget();
+		OpenGLWidget* w = new OpenGLWidget();
 		layout->addWidget(w);
 
-		QPushButton *button = new QPushButton("move");
+		QPushButton* button = new QPushButton("move");
 		layout->addWidget(button);
 
 		// QObject::connect(button, &QPushButton::clicked, w, &OpenGLWidget::print);
 		QObject::connect(button, &QPushButton::clicked, [&]()
-						 { w->addMove(); });
+			{ w->addMove(); });
 		window.setLayout(layout);
 		window.resize(800, 600);
 		window.show();
@@ -153,12 +154,12 @@ static int testOpenGL()
 	{
 		QWidget window;
 		window.setWindowTitle("QT_LYJ");
-		QVBoxLayout *layout = new QVBoxLayout(&window);
+		QVBoxLayout* layout = new QVBoxLayout(&window);
 
-		QPushButton *button = new QPushButton("open ply");
+		QPushButton* button = new QPushButton("open ply");
 		layout->addWidget(button);
 		QObject::connect(button, &QPushButton::clicked, [&]()
-						 {
+			{
 				QString plyPath = QFileDialog::getOpenFileName(&window, "Open PLY", "./", "PLYÎÄ¼þ(*.ply)");
 				if (plyPath.isEmpty()) {
 					qDebug() << "plyPath is nullptr!";
@@ -172,11 +173,11 @@ static int testOpenGL()
 				}
 				COMMON_LYJ::BaseTriMesh btm;
 				COMMON_LYJ::readPLYMesh(btmPath, btm);
-				OpenGLWindow *w = new OpenGLWindow(true, 1600, 1200, "Show mesh or obj");
+				OpenGLWindow* w = new OpenGLWindow(true, 1600, 1200, "Show mesh or obj");
 				w->changeMesh(btm.getVertexs()[0].data(), btm.getVn(), btm.getFaces()[0].vId_, btm.getFn());
 
 				w->show();
-						 });
+			});
 
 		QPushButton* button2 = new QPushButton("open obj");
 		layout->addWidget(button2);
@@ -209,7 +210,7 @@ static int testOpenGL()
 				const auto& fs = obj.getFaces();
 				const auto& uvs = obj.getTextureCoords();
 				const auto& triUVs = obj.getTriUVs();
-				std::vector<Eigen::Vector3f> newPs(uvs.size(), Eigen::Vector3f(0,0,0));
+				std::vector<Eigen::Vector3f> newPs(uvs.size(), Eigen::Vector3f(0, 0, 0));
 				for (int i = 0; i < fs.size(); ++i)
 				{
 					const auto& uvIds = triUVs[i].uvId_;
@@ -241,7 +242,7 @@ int testQT(int argc, char* argv[])
 	// testLabel();
 	// testImage();
 	 //testWindow(argc, argv);
-	 testOpenGL();
+	testOpenGL();
 	return 1;
 }
 
@@ -253,10 +254,11 @@ public:
 	OpenGLWindowTs(int _w = 800, int _h = 600, std::string _title = "OpenGL Window Ts", QWidget* parent = nullptr) : QDialog(parent)
 	{
 		setWindowTitle(QString::fromStdString(_title));
-		setFixedSize(_w, _h);
+		resize(_w, _h);
 
 		openGLWidgetTs_ = new MyOpenGLWidgetTs(_w, _h, this);
 		layout_ = new QVBoxLayout(this);
+		layout_->setContentsMargins(0, 0, 0, 0);
 		layout_->addWidget(openGLWidgetTs_);
 	}
 
@@ -308,25 +310,25 @@ QT_LYJ_API int testTcws(int argc, char* argv[],
 	{
 		pValids[i].assign(PSize, false);
 	}
-	for(int i=0;i<sz;++i)
+	for (int i = 0; i < sz; ++i)
 	{
 		const auto& pinCam = _cams[0];
 		const COMMON_LYJ::Pose3D& TcwP = _Tcws[i];
 		Eigen::Matrix<float, 3, 4> Tcw34;
-	    Tcw34.block(0, 0, 3, 3) = TcwP.getR().cast<float>();
-	    Tcw34.block(0, 3, 3, 1) = TcwP.gett().cast<float>();
-	    float* Tcw = Tcw34.data();
+		Tcw34.block(0, 0, 3, 3) = TcwP.getR().cast<float>();
+		Tcw34.block(0, 3, 3, 1) = TcwP.gett().cast<float>();
+		float* Tcw = Tcw34.data();
 
-	    cv::Mat depthsM(w, h, CV_32FC1);
-	    float* depths = (float*)depthsM.data;
-	    std::vector<char> allvisiblePIds(PSize, 0);
-	    std::vector<char> allvisibleFIds(fSize, 0);
-	    std::vector<unsigned int> fIdss(w * h, 0);
-	    unsigned int* fIds = fIdss.data();
-	    char* allVisiblePIds = allvisiblePIds.data();
-	    char* allVisibleFIds = allvisibleFIds.data();
+		cv::Mat depthsM(w, h, CV_32FC1);
+		float* depths = (float*)depthsM.data;
+		std::vector<char> allvisiblePIds(PSize, 0);
+		std::vector<char> allvisibleFIds(fSize, 0);
+		std::vector<unsigned int> fIdss(w * h, 0);
+		unsigned int* fIds = fIdss.data();
+		char* allVisiblePIds = allvisiblePIds.data();
+		char* allVisibleFIds = allvisibleFIds.data();
 
-	    CUDA_LYJ::project(proHandle, cache, Tcw, depths, fIds, allVisiblePIds, allVisibleFIds, 0, FLT_MAX, 0.5, 0.01);
+		CUDA_LYJ::project(proHandle, cache, Tcw, depths, fIds, allVisiblePIds, allVisibleFIds, 0, FLT_MAX, 0.5, 0.01);
 
 		for (int j = 0; j < PSize; ++j)
 		{

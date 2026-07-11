@@ -7,6 +7,7 @@
 #include <QMouseEvent>
 #include <QKeyEvent>
 #include <QWheelEvent>
+#include <QSizePolicy>
 #include <QImage>
 #include <QOpenGLTexture>
 #include <QTimer>

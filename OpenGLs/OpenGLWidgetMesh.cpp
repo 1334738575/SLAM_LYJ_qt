@@ -12,6 +12,7 @@ OpenGLWidgetMeshAbr::OpenGLWidgetMeshAbr(int _w, int _h, QWidget* parent)
     setFocusPolicy(Qt::StrongFocus);
     // 可选：强制获取焦点（窗口显示时自动聚焦）
     setFocus();
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     //// 设置自动更新
     //connect(&m_timer, &QTimer::timeout, this, [this]()
     //        { update(); });
@@ -23,7 +24,7 @@ OpenGLWidgetMeshAbr::OpenGLWidgetMeshAbr(int _w, int _h, QWidget* parent)
     m_textureDefault.fill(QColor(grayValue, grayValue, grayValue, 255));
     m_texture = m_textureDefault;
     attch1.resize(m_w * m_h * 4, 0);
-    fids.resize(m_w * m_h * 4, UINT_MAX);
+    fids.resize(m_w * m_h, UINT_MAX);
 }
 OpenGLWidgetMeshAbr::~OpenGLWidgetMeshAbr()
 {
@@ -57,10 +58,12 @@ void OpenGLWidgetMeshAbr::paintGL()
 }
 void OpenGLWidgetMeshAbr::resizeGL(int w, int h)
 {
-    m_w = w;
-    m_h = h;
+    m_w = w > 0 ? w : 1;
+    m_h = h > 0 ? h : 1;
     m_projection.setToIdentity();
-    m_projection.perspective(60.0f, w / float(h), 0.1f, 100.0f);
+    m_projection.perspective(60.0f, m_w / static_cast<float>(m_h), 0.1f, 100.0f);
+    initFBO();
+    update();
 }
 
 
@@ -84,23 +87,25 @@ void OpenGLWidgetMeshAbr::mousePressEvent(QMouseEvent* event)
 }
 void OpenGLWidgetMeshAbr::mouseMoveEvent(QMouseEvent* event)
 {
+    const float dx = static_cast<float>(event->x() - m_lastPos.x());
+    const float dy = static_cast<float>(event->y() - m_lastPos.y());
     if (m_isPressLeft)
     {
-        float dx = event->x() - m_lastPos.x();
-        float dy = event->y() - m_lastPos.y();
+        const int maxSide = m_w > m_h ? m_w : m_h;
+        const float rotateSpeed = maxSide > 0 ? 180.0f / static_cast<float>(maxSide) : 0.2f;
         QMatrix4x4 delta;
-        delta.rotate(dx, QVector3D(0.f, 1.0f, 0.0f));
-        delta.rotate(dy, QVector3D(1.f, 0.0f, 0.0f));
+        delta.rotate(dx * rotateSpeed, QVector3D(0.f, 1.0f, 0.0f));
+        delta.rotate(-dy * rotateSpeed, QVector3D(1.f, 0.0f, 0.0f));
         m_viewRotation = delta * m_viewRotation;
         m_lastPos = event->pos();
         update();
     }
     else if (m_isPressRight)
     {
-        float dx = (event->x() - m_lastPos.x()) / 20.f;
-        float dy = (event->y() - m_lastPos.y()) / 20.f;
-        m_detY -= dy;
-        m_detX += dx;
+        const int minSide = m_w < m_h ? m_w : m_h;
+        const float panSpeed = minSide > 0 ? 2.0f / static_cast<float>(minSide) : 0.002f;
+        m_detY -= dy * panSpeed;
+        m_detX += dx * panSpeed;
         m_lastPos = event->pos();
         update();
     }
@@ -180,8 +185,8 @@ void OpenGLWidgetMeshAbr::initProgram(const std::string& _vertPath, const std::s
 void OpenGLWidgetMeshAbr::initFBO()
 {
     //std::cout << devicePixelRatio() << std::endl;
-    int width = m_w;
-    int height = m_h;
+    int width = m_w > 0 ? m_w : 1;
+    int height = m_h > 0 ? m_h : 1;
     // 销毁旧FBO和纹理
     if (m_fbo) {
         delete m_fbo;
@@ -287,22 +292,51 @@ void OpenGLWidgetMeshAbr::updateViewInit()
 }
 void OpenGLWidgetMeshAbr::updateRotationCenter(const QPoint& pos)
 {
-    if (pos.x() < 0 || pos.x() >= m_w || pos.y() < 0 || pos.y() >= m_h || fids.empty() || !m_vertices || !m_indices)
+    if (pos.x() < 0 || pos.x() >= m_w || pos.y() < 0 || pos.y() >= m_h || !m_vertices)
         return;
 
-    uint fId = fids[(m_h - pos.y() - 1) * m_w + pos.x()];
-    if (fId == UINT_MAX || fId * 3 + 2 >= static_cast<uint>(m_iSize))
-        return;
-
-    QVector3D center(0.f, 0.f, 0.f);
-    for (int i = 0; i < 3; ++i)
+    if (fids.size() == static_cast<size_t>(m_w * m_h) && m_indices)
     {
-        const uint pId = m_indices[fId * 3 + i];
-        if (pId * m_vtxStep + 2 >= static_cast<uint>(m_vSize))
+        const uint fId = fids[(m_h - pos.y() - 1) * m_w + pos.x()];
+        if (fId != UINT_MAX && fId * 3 + 2 < static_cast<uint>(m_iSize))
+        {
+            QVector3D center(0.f, 0.f, 0.f);
+            for (int i = 0; i < 3; ++i)
+            {
+                const uint pId = m_indices[fId * 3 + i];
+                if (pId * m_vtxStep + 2 >= static_cast<uint>(m_vSize))
+                    return;
+                center += QVector3D(m_vertices[pId * m_vtxStep], m_vertices[pId * m_vtxStep + 1], m_vertices[pId * m_vtxStep + 2]);
+            }
+            m_rotationCenter = center / 3.0f;
             return;
-        center += QVector3D(m_vertices[pId * m_vtxStep], m_vertices[pId * m_vtxStep + 1], m_vertices[pId * m_vtxStep + 2]);
+        }
     }
-    m_rotationCenter = center / 3.0f;
+
+    const float selectRadius2 = 30.0f * 30.0f;
+    float bestDist2 = selectRadius2;
+    int bestIndex = -1;
+    const QMatrix4x4 mvp = m_projection * m_view * m_model;
+    for (int i = 0; i + 2 < m_vSize; i += m_vtxStep)
+    {
+        const QVector4D clip = mvp * QVector4D(m_vertices[i], m_vertices[i + 1], m_vertices[i + 2], 1.0f);
+        if (clip.w() == 0.0f)
+            continue;
+        const QVector3D ndc = clip.toVector3DAffine();
+        const float sx = (ndc.x() + 1.0f) * 0.5f * m_w;
+        const float sy = (1.0f - ndc.y()) * 0.5f * m_h;
+        const float dx = sx - static_cast<float>(pos.x());
+        const float dy = sy - static_cast<float>(pos.y());
+        const float dist2 = dx * dx + dy * dy;
+        if (dist2 < bestDist2)
+        {
+            bestDist2 = dist2;
+            bestIndex = i;
+        }
+    }
+
+    if (bestIndex >= 0)
+        m_rotationCenter = QVector3D(m_vertices[bestIndex], m_vertices[bestIndex + 1], m_vertices[bestIndex + 2]);
 }
 void OpenGLWidgetMeshAbr::initMatrix()
 {
@@ -318,6 +352,8 @@ void OpenGLWidgetMeshAbr::initMatrix()
 }
 void OpenGLWidgetMeshAbr::renderFBO()
 {
+    if (!m_fbo)
+        return;
     m_fbo->bind();
     glViewport(0, 0, m_w, m_h);
     glDisable(GL_BLEND); //输出8UI时，必须禁用
@@ -438,6 +474,7 @@ void OpenGLWidgetMeshAbr::renderWindows()
 {
     //glBindTexture(GL_TEXTURE_2D, 0);
     // ========== 第二步：将FBO的颜色纹理绘制到窗口（新增核心逻辑） ==========
+    glViewport(0, 0, m_w, m_h);
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // 窗口背景色（可选）
     glClear(GL_COLOR_BUFFER_BIT); // 清除默认帧缓冲
     glDisable(GL_DEPTH_TEST); // 绘制2D纹理无需深度测试

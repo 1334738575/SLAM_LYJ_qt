@@ -9,6 +9,8 @@
 #include <QMouseEvent>
 #include <QKeyEvent>
 #include <QWheelEvent>
+#include <QSizePolicy>
+#include <QVector4D>
 #include <QOpenGLFramebufferObject>
 
 #include <base/CameraModule.h>

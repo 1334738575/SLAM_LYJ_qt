@@ -39,6 +39,7 @@ namespace QT_LYJ {
 		m_isPressLeft(false), m_isPressRight(false), m_lastPos(0, 0), m_scale(1.f)
 	{
 		setFocusPolicy(Qt::StrongFocus); // 设置焦点策略，可以接收键盘事件
+		setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	}
 	OpenGLWidgetLyj::~OpenGLWidgetLyj()
 	{
@@ -257,11 +258,16 @@ namespace QT_LYJ {
 
 	void OpenGLWidgetLyj::resizeGL(int w, int h)
 	{
+		const int safeH = h > 0 ? h : 1;
+		const float aspect = static_cast<float>(w > 0 ? w : 1) / static_cast<float>(safeH);
 		glViewport(0, 0, w, h);
-		glMatrixMode(GL_PROJECTION); // 设置当前矩阵为投影矩阵
-		glLoadIdentity();            // 重置当前矩阵
-		gluPerspective(0.0f, 0.0f, 1.f, 0.0f); // 设置透视投影
-		glMatrixMode(GL_MODELVIEW);  // 设置当前矩阵为模型视图矩阵
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		if (aspect >= 1.0f)
+			glOrtho(-aspect, aspect, -1.0, 1.0, -100.0, 100.0);
+		else
+			glOrtho(-1.0, 1.0, -1.0 / aspect, 1.0 / aspect, -100.0, 100.0);
+		glMatrixMode(GL_MODELVIEW);
 	}
 
 	void OpenGLWidgetLyj::paintGL()
@@ -380,12 +386,19 @@ namespace QT_LYJ {
 
 		const QMatrix4x4 view = viewMatrix();
 		const float selectRadius2 = 30.0f * 30.0f;
+		const int safeH = height() > 0 ? height() : 1;
+		const float aspect = static_cast<float>(width() > 0 ? width() : 1) / static_cast<float>(safeH);
 		float bestDist2 = std::numeric_limits<float>::max();
 		int bestIndex = -1;
 
 		for (int i = 0; i < static_cast<int>(m_points.size()); ++i)
 		{
-			const QPointF screenPos = toScreenPos(view.map(m_points[i]), width(), height());
+			QVector3D ndc = view.map(m_points[i]);
+			if (aspect >= 1.0f)
+				ndc.setX(ndc.x() / aspect);
+			else
+				ndc.setY(ndc.y() * aspect);
+			const QPointF screenPos = toScreenPos(ndc, width(), height());
 			const float dx = static_cast<float>(screenPos.x() - pos.x());
 			const float dy = static_cast<float>(screenPos.y() - pos.y());
 			const float dist2 = dx * dx + dy * dy;
@@ -419,23 +432,25 @@ namespace QT_LYJ {
 	}
 	void OpenGLWidgetLyj::mouseMoveEvent(QMouseEvent* event)
 	{
+		const float dx = static_cast<float>(event->x() - m_lastPos.x());
+		const float dy = static_cast<float>(event->y() - m_lastPos.y());
 		if (m_isPressLeft)
 		{
-			float dx = event->x() - m_lastPos.x();
-			float dy = event->y() - m_lastPos.y();
+			const int maxSide = width() > height() ? width() : height();
+			const float rotateSpeed = maxSide > 0 ? 180.0f / static_cast<float>(maxSide) : 0.2f;
 			QMatrix4x4 delta;
-			delta.rotate(dx, 0.0f, 1.0f, 0.0f);
-			delta.rotate(dy, 1.0f, 0.0f, 0.0f);
+			delta.rotate(dx * rotateSpeed, 0.0f, 1.0f, 0.0f);
+			delta.rotate(-dy * rotateSpeed, 1.0f, 0.0f, 0.0f);
 			m_viewRotation = delta * m_viewRotation;
 			m_lastPos = event->pos();
 			update();
 		}
 		else if (m_isPressRight)
 		{
-			float dx = (event->x() - m_lastPos.x()) / 50.f;
-			float dy = (event->y() - m_lastPos.y()) / 50.f;
-			m_detY -= dy;
-			m_detX += dx;
+			const int minSide = width() < height() ? width() : height();
+			const float panSpeed = minSide > 0 ? 2.0f / static_cast<float>(minSide) : 0.002f;
+			m_detY -= dy * panSpeed;
+			m_detX += dx * panSpeed;
 			m_lastPos = event->pos();
 			update();
 		}
@@ -556,6 +571,7 @@ namespace QT_LYJ {
 			<< QVector3D(0.0f, 0.0f, 1.0f)
 			<< QVector3D(1.0f, 1.0f, 1.0f);
 		setFocusPolicy(Qt::StrongFocus); // 设置焦点策略，可以接收键盘事件
+		setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	}
 
 	OpenGLWidget::~OpenGLWidget()
@@ -592,11 +608,16 @@ namespace QT_LYJ {
 
 	void OpenGLWidget::resizeGL(int w, int h)
 	{
+		const int safeH = h > 0 ? h : 1;
+		const float aspect = static_cast<float>(w > 0 ? w : 1) / static_cast<float>(safeH);
 		glViewport(0, 0, w, h);
-		glMatrixMode(GL_PROJECTION); // 设置当前矩阵为投影矩阵
-		glLoadIdentity();            // 重置当前矩阵
-		gluPerspective(0.0f, 0.0f, 1.f, 0.0f); // 设置透视投影
-		glMatrixMode(GL_MODELVIEW);  // 设置当前矩阵为模型视图矩阵
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		if (aspect >= 1.0f)
+			glOrtho(-aspect, aspect, -1.0, 1.0, -100.0, 100.0);
+		else
+			glOrtho(-1.0, 1.0, -1.0 / aspect, 1.0 / aspect, -100.0, 100.0);
+		glMatrixMode(GL_MODELVIEW);
 	}
 
 	void OpenGLWidget::paintGL()
@@ -692,12 +713,19 @@ namespace QT_LYJ {
 
 		const QMatrix4x4 view = viewMatrix();
 		const float selectRadius2 = 30.0f * 30.0f;
+		const int safeH = height() > 0 ? height() : 1;
+		const float aspect = static_cast<float>(width() > 0 ? width() : 1) / static_cast<float>(safeH);
 		float bestDist2 = std::numeric_limits<float>::max();
 		int bestIndex = -1;
 
 		for (int i = 0; i < points.size(); ++i)
 		{
-			const QPointF screenPos = toScreenPos(view.map(points[i]), width(), height());
+			QVector3D ndc = view.map(points[i]);
+			if (aspect >= 1.0f)
+				ndc.setX(ndc.x() / aspect);
+			else
+				ndc.setY(ndc.y() * aspect);
+			const QPointF screenPos = toScreenPos(ndc, width(), height());
 			const float dx = static_cast<float>(screenPos.x() - pos.x());
 			const float dy = static_cast<float>(screenPos.y() - pos.y());
 			const float dist2 = dx * dx + dy * dy;
@@ -732,23 +760,25 @@ namespace QT_LYJ {
 
 	void OpenGLWidget::mouseMoveEvent(QMouseEvent* event)
 	{
+		const float dx = static_cast<float>(event->x() - m_lastPos.x());
+		const float dy = static_cast<float>(event->y() - m_lastPos.y());
 		if (m_isPressLeft)
 		{
-			float dx = event->x() - m_lastPos.x();
-			float dy = event->y() - m_lastPos.y();
+			const int maxSide = width() > height() ? width() : height();
+			const float rotateSpeed = maxSide > 0 ? 180.0f / static_cast<float>(maxSide) : 0.2f;
 			QMatrix4x4 delta;
-			delta.rotate(dx, 0.0f, 1.0f, 0.0f);
-			delta.rotate(dy, 1.0f, 0.0f, 0.0f);
+			delta.rotate(dx * rotateSpeed, 0.0f, 1.0f, 0.0f);
+			delta.rotate(-dy * rotateSpeed, 1.0f, 0.0f, 0.0f);
 			m_viewRotation = delta * m_viewRotation;
 			m_lastPos = event->pos();
 			update();
 		}
 		else if (m_isPressRight)
 		{
-			float dx = (event->x() - m_lastPos.x()) / 200.f;
-			float dy = (event->y() - m_lastPos.y()) / 200.f;
-			m_detY -= dy;
-			m_detX += dx;
+			const int minSide = width() < height() ? width() : height();
+			const float panSpeed = minSide > 0 ? 2.0f / static_cast<float>(minSide) : 0.002f;
+			m_detY -= dy * panSpeed;
+			m_detX += dx * panSpeed;
 			m_lastPos = event->pos();
 			update();
 		}
