@@ -818,9 +818,11 @@ void MyOpenGLWidgetTs::keyPressEvent(QKeyEvent* event)
         break;
     case Qt::Key_Right:
         curId_ = (curId_ + 1) >= Tcws_.size() ? 0 : (curId_ + 1);
+        std::cout << "id: " << curId_ << std::endl;
         break;
     case Qt::Key_Left:
         curId_ = (curId_ - 1) < 0 ? (Tcws_.size() - 1) : (curId_ - 1);
+        std::cout << "id: " << curId_ << std::endl;
         break;
     case Qt::Key_R:
         initMatrix();

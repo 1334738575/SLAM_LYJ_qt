@@ -214,14 +214,26 @@ void testRecord2DBin()
 
 int testViewTextures(int argc, char* argv[])
 {
-    //std::string ddd = "D:/data/tex/";
-    //std::string btmPath = ddd + "1.ply";
+    std::string ddd = "D:/data/tex/";
+    std::string btmPath = ddd + "/1.ply";
+    std::string imgDir = ddd + "/images/";
+    //std::string rtDir = ddd + "/output/TcwsAlign";
+    std::string rtDir = "D:/SLAM_LYJ_Packages/codex7/build2/tmp/pointValidation_rt/";
+    std::string camPath = ddd + "/cams/cam_0.txt";
+    float s = 1000;
 
-    std::string ddd = "D:/data/1778838919807-texZhanting/";
-    std::string btmPath = ddd + "/output/raw.ply";
-    std::string imgDir = ddd + "/texZhanting/";
-    std::string rtDir = ddd + "/output/Tcws3";
-    std::string camPath = ddd + "/texZhanting/cam_0.txt";
+    //std::string ddd = "D:/data/1778838919807-texZhanting/";
+    //std::string btmPath = ddd + "/output/raw.ply";
+    //std::string imgDir = ddd + "/texZhanting/";
+    //std::string rtDir = ddd + "/output/TcwsAlign";
+    //std::string camPath = ddd + "/texZhanting/cam_0.txt";
+    //float s = 1000;
+
+    //std::string ddd = "D:/data/1778492838319-tex/";
+    //std::string btmPath = ddd + "/output/raw.ply";
+    //std::string imgDir = ddd + "/tex/";
+    //std::string rtDir = ddd + "/output/Tcws3";
+    //std::string camPath = ddd + "/tex/cam_0.txt";
 
 
     std::ifstream camf(camPath);
@@ -236,7 +248,7 @@ int testViewTextures(int argc, char* argv[])
     auto& ps = btm.getVertexs();
     for (int i = 0; i < btm.getVn(); ++i)
     {
-        ps[i] /= 1000;
+        ps[i] /= s;
     }
     int sz = 10;
     sz = stlplus::folder_files(rtDir).size();
@@ -250,7 +262,7 @@ int testViewTextures(int argc, char* argv[])
         comImgs[i].compressCVMat(img);
         std::string TPath = rtDir + "/rt_" + std::to_string(i) + ".txt";
         COMMON_LYJ::readT34(TPath, Tcws[i]);
-        Tcws[i].gett() /= 1000;
+        Tcws[i].gett() /= s;
         COMMON_LYJ::PinholeCamera cam(comImgs[0].getWidth(), comImgs[0].getheight(), \
             camParams[0] / 2, camParams[1] / 2, camParams[2] / 2, camParams[3] / 2);
         cams[i] = cam;
