@@ -825,7 +825,7 @@ MyOpenGLWidgetTs::~MyOpenGLWidgetTs()
 }
 
 
-void MyOpenGLWidgetTs::setData(const std::vector<COMMON_LYJ::Pose3D>& _Tcws, const std::vector<COMMON_LYJ::PinholeCamera>& _cams, const std::vector<COMMON_LYJ::CompressedImage>& _comImgs, const std::vector<COMMON_LYJ::BitFlagVec>& _pValids)
+void MyOpenGLWidgetTs::setData(const std::vector<COMMON_LYJ::Pose3D>& _Tcws, const std::vector<QT_LYJ::ProjectorCamera>& _cams, const std::vector<COMMON_LYJ::CompressedImage>& _comImgs, const std::vector<COMMON_LYJ::BitFlagVec>& _pValids)
 {
     Tcws_ = _Tcws;
     cams_ = _cams;
@@ -919,12 +919,7 @@ void MyOpenGLWidgetTs::updateMatrixAndUBO()
         }
         m_model(i, 3) = T.gett()(i);
     }
-    QMatrix4x4 camK;
-    camK.setToIdentity();
-    camK(0, 0) = cams_[0].fx() / cams_[0].wide();
-    camK(1, 1) = cams_[0].fy() / cams_[0].height();
-    camK(0, 2) = cams_[0].cx() / cams_[0].wide();
-    camK(1, 2) = cams_[0].cy() / cams_[0].height();
+    const QT_LYJ::ProjectorCamera& camera = cams_[cams_.size() == 1 ? 0 : curId_];
     int pVSz = pValids_[curId_]->size();
     for (int i = 0; i < pVSz; ++i)
     {
@@ -937,7 +932,9 @@ void MyOpenGLWidgetTs::updateMatrixAndUBO()
     m_program.setUniformValue("model", m_model);
     m_program.setUniformValue("view", m_view);
     m_program.setUniformValue("projection", m_projection);
-    m_program.setUniformValue("cam", camK);
+    m_program.setUniformValue("cameraSize", QVector2D(camera.width, camera.height));
+    m_program.setUniformValueArray("cameraParameters", camera.parameters.data(), 8, 1);
+    m_program.setUniformValue("cameraModel", camera.model == QT_LYJ::ProjectorCameraModel::Fisheye ? 1 : 0);
     m_vbo.write(0, m_vertices, m_vSize * sizeof(float));
 }
 void MyOpenGLWidgetTs::drawFBO()

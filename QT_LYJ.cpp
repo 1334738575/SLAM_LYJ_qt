@@ -7,7 +7,17 @@
 #include <base/CameraModule.h>
 #include <base/Pose.h>
 
+#ifdef QT_LYJ_WITH_CUDA
 #include <CUDAInclude.h>
+#endif
+#ifdef QT_LYJ_WITH_VULKAN
+#include <VulkanInclude.h>
+#endif
+
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <stdexcept>
 
 #include "QT_LYJ.h"
 #include "OpenGLs/OpenGLTest.h"
@@ -17,6 +27,28 @@
 #include "Windows/WindowsMatch.h"
 
 NSP_QT_LYJ_BEGIN
+
+ProjectorCamera::ProjectorCamera(const COMMON_LYJ::PinholeCamera& camera)
+	: model(ProjectorCameraModel::Pinhole), width(camera.wide()), height(camera.height())
+{
+	parameters[0] = static_cast<float>(camera.fx());
+	parameters[1] = static_cast<float>(camera.fy());
+	parameters[2] = static_cast<float>(camera.cx());
+	parameters[3] = static_cast<float>(camera.cy());
+}
+
+ProjectorCamera::ProjectorCamera(ProjectorCameraModel cameraModel, int imageWidth, int imageHeight,
+	const std::vector<double>& cameraParameters)
+	: model(cameraModel), width(imageWidth), height(imageHeight)
+{
+	const size_t parameterCount = model == ProjectorCameraModel::Fisheye ? 8u : 4u;
+	if (cameraParameters.size() != parameterCount)
+		throw std::invalid_argument(model == ProjectorCameraModel::Fisheye
+			? "fisheye camera requires fx, fy, cx, cy, k1, k2, k3, k4"
+			: "pinhole camera requires fx, fy, cx, cy");
+	std::transform(cameraParameters.begin(), cameraParameters.end(), parameters.begin(),
+		[](double value) { return static_cast<float>(value); });
+}
 
 static int testButton()
 {
@@ -99,7 +131,7 @@ static void cvMat3CToQImageRGB32(const cv::Mat& mat, QImage& qimg) {
 
 	cv::Mat mmm;
 	cv::cvtColor(mat, mmm, cv::COLOR_BGR2BGRA);
-	// BGR °˙ BGR0£®Format_RGB32µƒ–°∂À≤ºæ÷ «BGR0£©£¨Œﬁ–Ë◊™RGB
+	// BGR ‚Üí BGR0ÔºàFormat_RGB32ÁöÑÂ∞èÁ´ØÂ∏ÉÂ±ÄÊòØBGR0ÔºâÔºåÊó†ÈúÄËΩ¨RGB
 	qimg = QImage(
 		reinterpret_cast<const uchar*>(mmm.data),
 		mmm.cols,
@@ -160,7 +192,7 @@ static int testOpenGL()
 		layout->addWidget(button);
 		QObject::connect(button, &QPushButton::clicked, [&]()
 			{
-				QString plyPath = QFileDialog::getOpenFileName(&window, "Open PLY", "./", "PLYŒƒº˛(*.ply)");
+				QString plyPath = QFileDialog::getOpenFileName(&window, "Open PLY", "./", "PLYÊñá‰ª∂(*.ply)");
 				if (plyPath.isEmpty()) {
 					qDebug() << "plyPath is nullptr!";
 					return;
@@ -183,7 +215,7 @@ static int testOpenGL()
 		layout->addWidget(button2);
 		QObject::connect(button2, &QPushButton::clicked, [&]()
 			{
-				QString objPath = QFileDialog::getOpenFileName(&window, "Open OBJ", "./", "OBJŒƒº˛(*.obj)");
+				QString objPath = QFileDialog::getOpenFileName(&window, "Open OBJ", "./", "OBJÊñá‰ª∂(*.obj)");
 				if (objPath.isEmpty()) {
 					qDebug() << "objPath is nullptr!";
 					return;
@@ -264,7 +296,7 @@ public:
 
 	void changeMesh(float* _vtcs, unsigned long long _vSz, unsigned int* _inds, unsigned long long _iSz,
 		const std::vector<COMMON_LYJ::Pose3D>& _Tcws,
-		const std::vector<COMMON_LYJ::PinholeCamera>& _cams,
+		const std::vector<ProjectorCamera>& _cams,
 		const std::vector<COMMON_LYJ::CompressedImage>& _comImgs,
 		const std::vector<COMMON_LYJ::BitFlagVec>& _pValids)
 	{
@@ -277,100 +309,148 @@ private:
 	MyOpenGLWidgetTs* openGLWidgetTs_ = nullptr;
 	QVBoxLayout* layout_ = nullptr;
 };
-QT_LYJ_API int testTcws(int argc, char* argv[],
-	const COMMON_LYJ::BaseTriMesh& _btm,
-	const std::vector<COMMON_LYJ::Pose3D>& _Tcws, const std::vector<COMMON_LYJ::PinholeCamera>& _cams, const std::vector<COMMON_LYJ::CompressedImage>& _comImgs)
+
+namespace
 {
-	COMMON_LYJ::BaseTriMesh btm = _btm;
-	std::vector<Eigen::Vector3f> vertexs = btm.getVertexs();
-	std::vector<COMMON_LYJ::BaseTriFace> fs = btm.getFaces();
-	btm.enableFCenters();
-	btm.calculateFCenters();
-	btm.enableFNormals();
-	btm.calculateFNormals();
-	int sz = _Tcws.size();
-	const auto& cam = _cams[0];
-	int w = cam.wide();
-	int h = cam.height();
-	std::vector<float> ccc{ static_cast<float>(cam.fx()), static_cast<float>(cam.fy()), static_cast<float>(cam.cx()), static_cast<float>(cam.cy()) };
-
-	float* Pws = vertexs[0].data();
-	unsigned int PSize = btm.getVn();
-	float* centers = btm.getFCenters()[0].data();
-	float* fNormals = btm.getFNormals()[0].data();
-	unsigned int* faces = fs[0].vId_;
-	unsigned int fSize = btm.getFn();
-	float* camParams = ccc.data();
-	CUDA_LYJ::ProHandle proHandle = CUDA_LYJ::initProjector(Pws, PSize, centers, fNormals, faces, fSize, camParams, w, h);
-	CUDA_LYJ::ProjectorCache cache;
-	cache.init(PSize, fSize, w, h);
-
-	std::vector<COMMON_LYJ::BitFlagVec> pValids(sz);
-	for (int i = 0; i < sz; ++i)
+	bool failProjection(const std::string& message, std::string* errorMessage)
 	{
-		pValids[i].assign(PSize, false);
+		if (errorMessage)
+			*errorMessage = message;
+		return false;
 	}
-	for (int i = 0; i < sz; ++i)
+
+	float finiteVulkanMaxDepth(const COMMON_LYJ::BaseTriMesh& mesh,
+		const Eigen::Matrix<float, 3, 4>& Tcw, float requestedMaxDepth, float minDepth)
 	{
-		const auto& pinCam = _cams[0];
-		const COMMON_LYJ::Pose3D& TcwP = _Tcws[i];
-		Eigen::Matrix<float, 3, 4> Tcw34;
-		Tcw34.block(0, 0, 3, 3) = TcwP.getR().cast<float>();
-		Tcw34.block(0, 3, 3, 1) = TcwP.gett().cast<float>();
-		float* Tcw = Tcw34.data();
-
-		cv::Mat depthsM(w, h, CV_32FC1);
-		float* depths = (float*)depthsM.data;
-		std::vector<char> allvisiblePIds(PSize, 0);
-		std::vector<char> allvisibleFIds(fSize, 0);
-		std::vector<unsigned int> fIdss(w * h, 0);
-		unsigned int* fIds = fIdss.data();
-		char* allVisiblePIds = allvisiblePIds.data();
-		char* allVisibleFIds = allvisibleFIds.data();
-
-		CUDA_LYJ::project(proHandle, cache, Tcw, depths, fIds, allVisiblePIds, allVisibleFIds, 0, FLT_MAX, 0.5, 0.01);
-
-		for (int j = 0; j < PSize; ++j)
+		if (std::isfinite(requestedMaxDepth) &&
+			requestedMaxDepth < std::numeric_limits<float>::max() * 0.5f)
+			return requestedMaxDepth;
+		float maxDepth = minDepth;
+		for (const Eigen::Vector3f& point : mesh.getVertexs())
 		{
-			if (allvisiblePIds[j] == 1)
-				pValids[i].setFlag(j, true);
+			const float depth = Tcw.row(2).head<3>().dot(point) + Tcw(2, 3);
+			maxDepth = std::max(maxDepth, depth);
 		}
-		//std::vector<Eigen::Vector3f> Pws;
-		//for (int j = 0; j < PSize; ++j)
-		//{
-		//	if (pValids[i][j])
-		//		Pws.push_back(vertexs[j]);
-		//}
-		//COMMON_LYJ::BaseTriMesh btmTmp;
-		//btmTmp.setVertexs(Pws);
-		//COMMON_LYJ::writePLYMesh("D:/tmp/pValid" + std::to_string(i) + ".ply", btmTmp);
-	 //   cv::Mat depthsMShow(h, w, CV_8UC1);
-	 //   depthsMShow.setTo(cv::Scalar(0));
-	 //   std::vector<Eigen::Vector3f> Pcs;
-	 //   Pcs.reserve(w * h);
-	 //   for (int ii = 0; ii < h; ++ii)
-	 //   {
-	 //       for (int j = 0; j < w; ++j)
-	 //       {
-	 //           float d = depths[ii * w + j];
-	 //           if (d == FLT_MAX)
-	 //           {
-	 //               depthsMShow.at<uchar>(ii, j) = 0;
-	 //               continue;
-	 //           }
-	 //           Eigen::Vector3d Pc;
-	 //           pinCam.image2World(j, ii, d, Pc);
-	 //           Pcs.push_back(Pc.cast<float>());
-	 //           depthsMShow.at<uchar>(ii, j) = d * 20 < 255 ? (char)(d * 20) : 255;
-	 //       }
-	 //   }
-		////cv::imwrite("D:/tmp/" + std::to_string(i) + ".png", depthsMShow);
-	 //   cv::imshow("depth", depthsMShow);
-	 //   cv::waitKey();
-		continue;
+		return std::max(minDepth * 2.0f, maxDepth * 1.01f + 1.0f);
 	}
+}
 
-	CUDA_LYJ::release(proHandle);
+QT_LYJ_API bool projectMeshVisibility(
+	const COMMON_LYJ::BaseTriMesh& mesh,
+	const std::vector<COMMON_LYJ::Pose3D>& Tcws,
+	const std::vector<ProjectorCamera>& cameras,
+	std::vector<COMMON_LYJ::BitFlagVec>& pointVisibility,
+	const ProjectionOptions& options,
+	std::string* errorMessage)
+{
+	if (mesh.getVn() == 0 || mesh.getFn() == 0)
+		return failProjection("mesh must contain vertices and faces", errorMessage);
+	if (Tcws.empty())
+		return failProjection("at least one pose is required", errorMessage);
+	if (cameras.size() != 1 && cameras.size() != Tcws.size())
+		return failProjection("camera count must be one or match the pose count", errorMessage);
+
+	COMMON_LYJ::BaseTriMesh preparedMesh = mesh;
+	preparedMesh.enableFCenters();
+	preparedMesh.calculateFCenters();
+	preparedMesh.enableFNormals();
+	preparedMesh.calculateFNormals();
+	const unsigned int pointCount = preparedMesh.getVn();
+	const unsigned int faceCount = preparedMesh.getFn();
+	pointVisibility.assign(Tcws.size(), COMMON_LYJ::BitFlagVec(static_cast<int>(pointCount)));
+
+	for (size_t index = 0; index < Tcws.size(); ++index)
+	{
+		const ProjectorCamera& camera = cameras[cameras.size() == 1 ? 0 : index];
+		if (camera.width <= 0 || camera.height <= 0 || camera.parameters[0] <= 0.0f || camera.parameters[1] <= 0.0f)
+			return failProjection("camera dimensions and focal lengths must be positive", errorMessage);
+
+		Eigen::Matrix<float, 3, 4> Tcw;
+		Tcw.block(0, 0, 3, 3) = Tcws[index].getR().cast<float>();
+		Tcw.block(0, 3, 3, 1) = Tcws[index].gett().cast<float>();
+		std::vector<float> depths(static_cast<size_t>(camera.width) * camera.height);
+		std::vector<unsigned int> faceIds(depths.size(), UINT32_MAX);
+		std::vector<char> visiblePoints(pointCount, 0);
+		std::vector<char> visibleFaces(faceCount, 0);
+
+		if (options.backend == ProjectorBackend::CUDA)
+		{
+#ifdef QT_LYJ_WITH_CUDA
+			const CUDA_LYJ::CameraModel model = camera.model == ProjectorCameraModel::Fisheye
+				? CUDA_LYJ::CameraModel::Fisheye : CUDA_LYJ::CameraModel::Pinhole;
+			CUDA_LYJ::ProHandle handle = CUDA_LYJ::initProjector(
+				preparedMesh.getVertexs()[0].data(), pointCount, preparedMesh.getFCenters()[0].data(),
+				preparedMesh.getFNormals()[0].data(), preparedMesh.getFaces()[0].vId_, faceCount,
+				const_cast<float*>(camera.parameters.data()), camera.width, camera.height, model);
+			if (!handle)
+				return failProjection("failed to initialize CUDA projector", errorMessage);
+			CUDA_LYJ::ProjectorCache cache(pointCount, faceCount, camera.width, camera.height);
+			CUDA_LYJ::project(handle, cache, Tcw.data(), depths.data(), faceIds.data(),
+				visiblePoints.data(), visibleFaces.data(), options.minDepth, options.maxDepth,
+				options.normalCosineThreshold, options.visibilityDepthThreshold);
+			CUDA_LYJ::release(handle);
+#else
+			return failProjection("QT_LYJ was built without CUDA projector support", errorMessage);
+#endif
+		}
+		else
+		{
+#ifdef QT_LYJ_WITH_VULKAN
+			const LYJ_VK::CameraModel model = camera.model == ProjectorCameraModel::Fisheye
+				? LYJ_VK::CameraModel::Fisheye : LYJ_VK::CameraModel::Pinhole;
+			LYJ_VK::ProVKHandle handle = LYJ_VK::initProjectorVK(
+				preparedMesh.getVertexs()[0].data(), pointCount, preparedMesh.getFCenters()[0].data(),
+				preparedMesh.getFNormals()[0].data(), preparedMesh.getFaces()[0].vId_, faceCount,
+				const_cast<float*>(camera.parameters.data()), camera.width, camera.height, model);
+			if (!handle)
+				return failProjection("failed to initialize Vulkan projector", errorMessage);
+			LYJ_VK::ProVKCacheHandle cache = LYJ_VK::initProjectorVKCache(handle);
+			if (!cache)
+			{
+				LYJ_VK::releaseVK(handle);
+				return failProjection("failed to initialize Vulkan projector cache", errorMessage);
+			}
+			const float maxDepth = finiteVulkanMaxDepth(preparedMesh, Tcw, options.maxDepth, options.minDepth);
+			LYJ_VK::projectVK(handle, cache, Tcw.data(), depths.data(), faceIds.data(),
+				visiblePoints.data(), visibleFaces.data(), options.minDepth, maxDepth,
+				options.normalCosineThreshold, options.visibilityDepthThreshold);
+			LYJ_VK::releaseProjectorVKCache(cache);
+			LYJ_VK::releaseVK(handle);
+#else
+			return failProjection("QT_LYJ was built without Vulkan projector support", errorMessage);
+#endif
+		}
+
+		for (unsigned int pointIndex = 0; pointIndex < pointCount; ++pointIndex)
+			if (visiblePoints[pointIndex])
+				pointVisibility[index].setFlag(pointIndex, true);
+	}
+	if (errorMessage)
+		errorMessage->clear();
+	return true;
+}
+
+QT_LYJ_API int testTcws(int argc, char* argv[],
+	const COMMON_LYJ::BaseTriMesh& mesh,
+	const std::vector<COMMON_LYJ::Pose3D>& Tcws,
+	const std::vector<ProjectorCamera>& cameras,
+	const std::vector<COMMON_LYJ::CompressedImage>& compressedImages,
+	ProjectorBackend backend)
+{
+	if (compressedImages.size() != Tcws.size())
+	{
+		std::cerr << "Projection failed: compressed image count must match the pose count" << std::endl;
+		return 1;
+	}
+	std::vector<COMMON_LYJ::BitFlagVec> pointVisibility;
+	ProjectionOptions options;
+	options.backend = backend;
+	std::string error;
+	if (!projectMeshVisibility(mesh, Tcws, cameras, pointVisibility, options, &error))
+	{
+		std::cerr << "Projection failed: " << error << std::endl;
+		return 1;
+	}
 
 
 	QApplication app(argc, argv);
@@ -383,7 +463,7 @@ QT_LYJ_API int testTcws(int argc, char* argv[],
 	QObject::connect(button, &QPushButton::clicked, [&]()
 		{
 			OpenGLWindowTs* w = new OpenGLWindowTs(1600, 1200, "Show mesh or obj");
-			w->changeMesh(btm.getVertexs()[0].data(), btm.getVn(), btm.getFaces()[0].vId_, btm.getFn(), _Tcws, _cams, _comImgs, pValids);
+			w->changeMesh(mesh.getVertexs()[0].data(), mesh.getVn(), mesh.getFaces()[0].vId_, mesh.getFn(), Tcws, cameras, compressedImages, pointVisibility);
 			w->show();
 		});
 
@@ -393,6 +473,24 @@ QT_LYJ_API int testTcws(int argc, char* argv[],
 	app.exec();
 
 	return 0;
+}
+
+QT_LYJ_API int testTcws(int argc, char* argv[],
+	const COMMON_LYJ::BaseTriMesh& mesh,
+	const std::vector<COMMON_LYJ::Pose3D>& Tcws,
+	const std::vector<COMMON_LYJ::PinholeCamera>& cameras,
+	const std::vector<COMMON_LYJ::CompressedImage>& compressedImages)
+{
+	std::vector<ProjectorCamera> projectorCameras;
+	projectorCameras.reserve(cameras.size());
+	for (const COMMON_LYJ::PinholeCamera& camera : cameras)
+		projectorCameras.emplace_back(camera);
+#ifdef QT_LYJ_WITH_CUDA
+	const ProjectorBackend backend = ProjectorBackend::CUDA;
+#else
+	const ProjectorBackend backend = ProjectorBackend::Vulkan;
+#endif
+	return testTcws(argc, argv, mesh, Tcws, projectorCameras, compressedImages, backend);
 }
 
 

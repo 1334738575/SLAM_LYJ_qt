@@ -20,6 +20,8 @@
 
 #include <opencv2/opencv.hpp>
 #include <QOpenGLFunctions_4_3_Core>
+#include <QVector2D>
+#include "QT_LYJ.h"
 class OpenGLWidgetMeshAbr : public QOpenGLWidget, protected QOpenGLFunctions_4_3_Core
 {
     Q_OBJECT
@@ -186,7 +188,7 @@ public:
     ~MyOpenGLWidgetTs();
 
     void setData(const std::vector<COMMON_LYJ::Pose3D>& _Tcws,
-        const std::vector<COMMON_LYJ::PinholeCamera>& _cams,
+        const std::vector<QT_LYJ::ProjectorCamera>& _cams,
         const std::vector<COMMON_LYJ::CompressedImage>& _comImgs,
         const std::vector<COMMON_LYJ::BitFlagVec>& _pValids);
 
@@ -202,7 +204,7 @@ protected:
 
 protected:
     std::vector<COMMON_LYJ::Pose3D> Tcws_;
-    std::vector<COMMON_LYJ::PinholeCamera> cams_;
+    std::vector<QT_LYJ::ProjectorCamera> cams_;
     std::vector<COMMON_LYJ::CompressedImage*> comImgs_;
     std::vector<COMMON_LYJ::BitFlagVec*> pValids_;
     int curId_ = 0;
