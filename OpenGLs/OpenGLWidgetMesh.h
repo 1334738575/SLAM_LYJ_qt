@@ -48,7 +48,7 @@ public:
     /// </summary>
     /// <param name="_inds"指针></param>
     /// <param name="_sz"面片数></param>
-    virtual void setIndices(unsigned int* _inds, unsigned long long _sz) = 0;
+    virtual void setIndices(const unsigned int* _inds, unsigned long long _sz) = 0;
 
 protected:
     void initializeGL() override;
@@ -132,7 +132,7 @@ protected:
     int m_uvStep = 0;
     float* m_vertices = nullptr;
     int m_vSize = 0;
-    unsigned int* m_indices = nullptr;
+    const unsigned int* m_indices = nullptr;
     int m_iSize = 0;
 
 
@@ -153,7 +153,7 @@ public:
 
     void setVertices(const float* const _vtcs, unsigned long long _sz) override;
     void setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz) override;
-    void setIndices(unsigned int* _inds, unsigned long long _sz) override;
+    void setIndices(const unsigned int* _inds, unsigned long long _sz) override;
 
 protected:
 

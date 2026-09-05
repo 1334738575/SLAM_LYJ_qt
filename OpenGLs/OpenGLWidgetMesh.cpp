@@ -655,7 +655,7 @@ void OpenGLWidgetPly::setVerticesTexture(const float* const _vtcs, const float* 
 {
     return;
 }
-void OpenGLWidgetPly::setIndices(unsigned int* _inds, unsigned long long _sz)
+void OpenGLWidgetPly::setIndices(const unsigned int* _inds, unsigned long long _sz)
 {
     m_indices = _inds;
     m_iSize = _sz * 3;

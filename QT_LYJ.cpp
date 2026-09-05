@@ -294,7 +294,7 @@ public:
 		layout_->addWidget(openGLWidgetTs_);
 	}
 
-	void changeMesh(float* _vtcs, unsigned long long _vSz, unsigned int* _inds, unsigned long long _iSz,
+	void changeMesh(const float* _vtcs, unsigned long long _vSz, const unsigned int* _inds, unsigned long long _iSz,
 		const std::vector<COMMON_LYJ::Pose3D>& _Tcws,
 		const std::vector<ProjectorCamera>& _cams,
 		const std::vector<COMMON_LYJ::CompressedImage>& _comImgs,

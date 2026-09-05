@@ -214,26 +214,46 @@ void testRecord2DBin()
 
 int testViewTextures(int argc, char* argv[])
 {
-    std::string ddd = "D:/data/tex/";
+    std::string ddd = "D:/data/tex/Tcws/";
+    //std::string ddd = "D:/data/tex2/";
+    //std::string ddd = "D:/SLAM_LYJ_Packages/FastSFM/1776245225207-texture_fusion.260414_020033_967/texture_fusion.260414_020033_967/tex/";
     std::string btmPath = ddd + "/1.ply";
-    std::string imgDir = ddd + "/images/";
+    std::string imgDir = ddd;
     //std::string rtDir = ddd + "/output/TcwsAlign";
-    std::string rtDir = "D:/SLAM_LYJ_Packages/codex7/build2/tmp/pointValidation_rt/";
-    std::string camPath = ddd + "/cams/cam_0.txt";
+    //std::string rtDir = "D:/SLAM_LYJ_Packages/codex7/build2/tmp/textureMeshJointOptimization_rt/";
+    std::string rtDir = "D:/SLAM_LYJ_Packages/FastSFM/build/tmp/textureMeshJointOptimization_rt/";
+    //std::string rtDir = ddd;
+    //std::string rtDir = "D:/data/tex/Tcws_output/pointValidation_rt/";
+    std::string camPath = ddd + "/cam_0.txt";
     float s = 1000;
 
     //std::string ddd = "D:/data/1778838919807-texZhanting/";
-    //std::string btmPath = ddd + "/output/raw.ply";
+    //std::string btmPath = ddd + "/output/1.ply";
     //std::string imgDir = ddd + "/texZhanting/";
-    //std::string rtDir = ddd + "/output/TcwsAlign";
+    ////std::string rtDir = ddd + "/output/TcwsAlign";
+    ////std::string rtDir = "D:/SLAM_LYJ_Packages/codex7/build2/tmp/pointValidation_rt/";
+    ////std::string rtDir = "D:/SLAM_LYJ_Packages/FastSFM/build/tmp/pointValidation_rt/";
+    //std::string rtDir = "D:/SLAM_LYJ_Packages/FastSFM/tmp/full844/textureMeshJointOptimization_rt/";
     //std::string camPath = ddd + "/texZhanting/cam_0.txt";
-    //float s = 1000;
+    //float s = 1;
 
     //std::string ddd = "D:/data/1778492838319-tex/";
     //std::string btmPath = ddd + "/output/raw.ply";
     //std::string imgDir = ddd + "/tex/";
-    //std::string rtDir = ddd + "/output/Tcws3";
+    ////std::string rtDir = "D:/SLAM_LYJ_Packages/codex7/build2/tmp/pointValidation_rt/";
+    //std::string rtDir = "D:/SLAM_LYJ_Packages/FastSFM/build/tmp/textureMeshJointOptimization_rt/";
+    ////std::string rtDir = ddd + "/output/Tcws3";
     //std::string camPath = ddd + "/tex/cam_0.txt";
+    //float s = 1000;
+
+    //std::string ddd = "D:/data/1776063823268-tex/tex/";
+    //std::string btmPath = ddd + "/1.ply";
+    //std::string imgDir = ddd + "/";
+    ////std::string rtDir = "D:/SLAM_LYJ_Packages/codex7/build2/tmp/pointValidation_rt/";
+    //std::string rtDir = "D:/data/1776063823268-tex/tex_output/pointValidation_rt/";
+    ////std::string rtDir = ddd + "/output/Tcws3";
+    //std::string camPath = ddd + "/cam_0.txt";
+    //float s = 1000;
 
 
     std::ifstream camf(camPath);
@@ -252,6 +272,7 @@ int testViewTextures(int argc, char* argv[])
     }
     int sz = 10;
     sz = stlplus::folder_files(rtDir).size();
+    //sz = 21;
     std::vector<COMMON_LYJ::Pose3D> Tcws(sz);
     std::vector<COMMON_LYJ::PinholeCamera> cams(sz);
     std::vector<COMMON_LYJ::CompressedImage> comImgs(sz);
