@@ -21,6 +21,7 @@
 #include <opencv2/opencv.hpp>
 #include <QOpenGLFunctions_4_3_Core>
 #include <QVector2D>
+#include <functional>
 #include "QT_LYJ.h"
 class OpenGLWidgetMeshAbr : public QOpenGLWidget, protected QOpenGLFunctions_4_3_Core
 {
@@ -50,6 +51,10 @@ public:
     /// <param name="_sz"面片数></param>
     virtual void setIndices(const unsigned int* _inds, unsigned long long _sz) = 0;
 
+    void setDrawFaces(bool enabled) { m_bDrawFaces = enabled; }
+    void setDrawTexture(bool enabled) { m_bDrawTexture = enabled; }
+    void setDrawVertices(bool enabled) { m_bDrawVertices = enabled; }
+
 protected:
     void initializeGL() override;
     void paintGL() override;
@@ -71,6 +76,7 @@ protected:
     virtual void setAttribute() = 0;
     virtual void initTexture() = 0;
     void updateViewInit();
+    void fitViewToBounds();
     virtual void updateMatrixAndUBO() = 0;
     void renderFBO();
     virtual void drawFBO() = 0;
@@ -111,6 +117,9 @@ protected:
     QMatrix4x4 m_model;
     QMatrix4x4 m_viewRotation;
     QVector3D m_rotationCenter;
+    QVector3D m_boundsCenter;
+    float m_boundsRadius = 0.5f;
+    bool m_hasBounds = false;
     //float m_angle = 0.0f;
     //QTimer m_timer;
     QImage m_texture;
@@ -138,6 +147,7 @@ protected:
 
     float m_detX = 0;             // X移动，绑定鼠标右键的横向
     float m_detY = 0;             // Y移动，绑定鼠标右键的纵向
+    float m_zoom = 1.0f;
     float m_detZ = 0;             // Z移动，绑定鼠标滚轴
     bool m_isPressLeft = false;          // 鼠标是否按下
     bool m_isPressRight = false;          // 鼠标是否按下
@@ -169,21 +179,32 @@ protected:
 class OpenGLWidgetObj : public OpenGLWidgetPly
 {
 public:
+	using HoverTexturePreviewCallback = std::function<void(const QImage&, int, const QPointF&)>;
+
     explicit OpenGLWidgetObj(int _w, int _h, QWidget* parent = nullptr);
     ~OpenGLWidgetObj();
 
     void setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz) override;
+	void setHoverTexturePreviewCallback(HoverTexturePreviewCallback callback);
 
 protected:
+	void mouseMoveEvent(QMouseEvent* event) override;
+	void leaveEvent(QEvent* event) override;
     virtual void setAttribute();
     virtual void initTexture();
     virtual void drawFBO();
+	void updateHoverTexturePreview();
+	QTimer hoverPreviewTimer_;
+	QPoint hoverPreviewPos_;
+	HoverTexturePreviewCallback hoverTexturePreviewCallback_;
 
 };
 
 class MyOpenGLWidgetTs :public OpenGLWidgetObj
 {
 public:
+	using TexturePreviewCallback = std::function<void(const QImage&, int, const QPointF&)>;
+
     explicit MyOpenGLWidgetTs(int _w, int _h, QWidget* parent = nullptr);
     ~MyOpenGLWidgetTs();
 
@@ -192,8 +213,12 @@ public:
         const std::vector<COMMON_LYJ::CompressedImage>& _comImgs,
         const std::vector<COMMON_LYJ::BitFlagVec>& _pValids);
 
+	void setTexturePreviewCallback(TexturePreviewCallback callback);
+
 protected:
     void keyPressEvent(QKeyEvent* event) override;
+	void mouseMoveEvent(QMouseEvent* event) override;
+	void leaveEvent(QEvent* event) override;
 
 
     void setAttribute() override;
@@ -205,11 +230,18 @@ protected:
 protected:
     std::vector<COMMON_LYJ::Pose3D> Tcws_;
     std::vector<QT_LYJ::ProjectorCamera> cams_;
-    std::vector<COMMON_LYJ::CompressedImage*> comImgs_;
-    std::vector<COMMON_LYJ::BitFlagVec*> pValids_;
+    std::vector<COMMON_LYJ::CompressedImage> comImgs_;
+    std::vector<COMMON_LYJ::BitFlagVec> pValids_;
     int curId_ = 0;
     std::vector<uint> pValidTmp_;
     std::vector<GLuint> textures_;
     GLuint uboId; // UBO缓冲区ID
+	std::vector<QImage> previewImages_;
+	TexturePreviewCallback texturePreviewCallback_;
+	QTimer previewTimer_;
+	QPoint previewPos_;
+	int previewDelayMs_ = 180;
+
+	void updateTexturePreview();
 };
 

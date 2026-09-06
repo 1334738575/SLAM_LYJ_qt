@@ -18,6 +18,7 @@ NSP_QT_LYJ_BEGIN
 
 enum class ProjectorBackend
 {
+	OpenGL,
 	CUDA,
 	Vulkan
 };
@@ -43,7 +44,7 @@ struct QT_LYJ_API ProjectorCamera
 
 struct QT_LYJ_API ProjectionOptions
 {
-	ProjectorBackend backend = ProjectorBackend::CUDA;
+	ProjectorBackend backend = ProjectorBackend::OpenGL;
 	float minDepth = 0.0f;
 	float maxDepth = FLT_MAX;
 	float normalCosineThreshold = 0.5f;
@@ -52,6 +53,7 @@ struct QT_LYJ_API ProjectionOptions
 
 QT_LYJ_API int testQT(int argc, char* argv[]);
 QT_LYJ_API int testOpenGLOnly();
+QT_LYJ_API int testOBJ(const std::string& path);
 
 QT_LYJ_API bool projectMeshVisibility(
 	const COMMON_LYJ::BaseTriMesh& mesh,

@@ -8,9 +8,15 @@ uniform sampler2D ourTexture; // 纹理采样器
 void main(){
     // FragColor = vec4(0.8, 0.3, 0.2, 1.0);
     if(TexCoord.x < 0 || TexCoord.y < 0)
+    {
         FragColor = vec4(05.f, 05.f, 05.f, 1.0f);
+        faceId = uvec4(0);
+        return;
+    }
     else
+    {
         FragColor = texture(ourTexture, TexCoord);
+    }
     faceId = uvec4(
         ((gl_PrimitiveID >> 24) & 0xFF) + 1,
         (gl_PrimitiveID >> 16) & 0xFF,

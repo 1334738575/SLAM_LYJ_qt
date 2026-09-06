@@ -247,7 +247,7 @@ int testGL() {
     GLuint texture2;
     glGenTextures(1, &texture2);
     glBindTexture(GL_TEXTURE_2D, texture2);
-    cv::Mat mmm = cv::imread("D:/testLyj/QT/data/2D/images/0.png", CV_LOAD_IMAGE_UNCHANGED);
+    cv::Mat mmm = cv::imread("D:/testLyj/QT/data/2D/images/0.png", cv::IMREAD_UNCHANGED);
     //cv::imshow("111", mmm);
     //cv::waitKey();
     unsigned char* data = mmm.data;

@@ -44,7 +44,7 @@ set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install)
 # ################################cmake##################################
 if(DEFINED ${PROJECT_NAME}_CMAKE_FILE)
     include(${${PROJECT_NAME}_CMAKE_FILE})
-elseif(EXISTS ${CMAKE_CURRENT_LIST_DIR}/../cmake/FuncLyj.cmake)
+elseif(EXISTS ${CMAKE_CURRENT_LIST_DIR}/../cmake/FuncLyj.cmake) 
     include(${CMAKE_CURRENT_LIST_DIR}/../cmake/FuncLyj.cmake)
 else()
     include(${CMAKE_CURRENT_LIST_DIR}/cmake/FuncLyj.cmake)
@@ -55,8 +55,9 @@ set(${PROJECT_NAME}_INCLUDE_DIRS)
 set(${PROJECT_NAME}_LIBRARIES)
 set(${PROJECT_NAME}_BINARY_DIRS)
 find_package(Qt5 REQUIRED COMPONENTS Widgets Core Gui OpenGL)
-option(QT_LYJ_ENABLE_CUDA "Enable the CUDA mesh projector backend" ON)
-option(QT_LYJ_ENABLE_VULKAN "Enable the Vulkan mesh projector backend" ON)
+option(QT_LYJ_ENABLE_CUDA "Enable the CUDA mesh projector backend" OFF)
+option(QT_LYJ_ENABLE_VULKAN "Enable the Vulkan mesh projector backend" OFF)
+option(QT_LYJ_BUILD_SIBLING_DEPENDENCIES "Build sibling COMMON_LYJ and Vulkan_LYJ sources" ON)
 # message(FATAL_ERROR ${QT5_DIR})
 list(APPEND CMAKE_MODULE_PATH "D:/SLAM_LYJ/dependencies/Glfw")
 find_package(Glfw)
@@ -218,7 +219,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME} PRIVATE
     ${${PROJECT_NAME}_LIBRARIES}
 )
-target_compile_definitions(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_API_EXPORTS) # TODO
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    ${PROJECT_NAME}_API_EXPORTS) # TODO
 if(QT_LYJ_CUDA_TARGET)
     target_compile_definitions(${PROJECT_NAME} PRIVATE QT_LYJ_WITH_CUDA=1)
 endif()
@@ -242,7 +244,7 @@ if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
 endif()
 
 # ################################example##################################
-add_executable(${PROJECT_NAME}Bin example/main.cpp)
+add_executable(${PROJECT_NAME}Bin example/VulkanQtMain.cpp)
 target_include_directories(${PROJECT_NAME}Bin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${${PROJECT_NAME}_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME}Bin PRIVATE ${PROJECT_NAME} ${${PROJECT_NAME}_LIBRARIES})
 
@@ -252,24 +254,6 @@ if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
         ARCHIVE_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
         RUNTIME_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
     )
-endif()
-
-include(CTest)
-if(BUILD_TESTING)
-    add_executable(${PROJECT_NAME}ProjectorSmoke tests/ProjectorSmoke.cpp)
-    target_include_directories(${PROJECT_NAME}ProjectorSmoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${${PROJECT_NAME}_INCLUDE_DIRS})
-    target_link_libraries(${PROJECT_NAME}ProjectorSmoke PRIVATE ${PROJECT_NAME} ${${PROJECT_NAME}_LIBRARIES})
-    if(QT_LYJ_CUDA_TARGET)
-        add_test(NAME ${PROJECT_NAME}ProjectorSmokeCUDA COMMAND ${PROJECT_NAME}ProjectorSmoke cuda)
-    endif()
-    if(QT_LYJ_VULKAN_TARGET)
-        add_test(NAME ${PROJECT_NAME}ProjectorSmokeVulkan COMMAND ${PROJECT_NAME}ProjectorSmoke vulkan)
-    endif()
-    if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
-        set_target_properties(${PROJECT_NAME}ProjectorSmoke PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY ${${PROJECT_NAME}_LIBRARY_OUTPUT_PATH}
-        )
-    endif()
 endif()
 
 if(MSVC)

@@ -3,6 +3,12 @@
 #include <QOpenGLFunctions_4_3_Core>
 #include <common/BaseTriMesh.h>
 #include <IO/MeshIO.h>
+#include <QImage>
+#include <QPainter>
+#include <QRect>
+#include <algorithm>
+#include <cmath>
+#include <utility>
 
 /********************************************OpenGLWidgetMeshAbr***************************************************/
 OpenGLWidgetMeshAbr::OpenGLWidgetMeshAbr(int _w, int _h, QWidget* parent)
@@ -61,8 +67,11 @@ void OpenGLWidgetMeshAbr::resizeGL(int w, int h)
     m_w = w > 0 ? w : 1;
     m_h = h > 0 ? h : 1;
     m_projection.setToIdentity();
-    m_projection.perspective(60.0f, m_w / static_cast<float>(m_h), 0.1f, 100.0f);
+    const float radius = std::max(m_boundsRadius, 1.0e-3f);
+    m_projection.perspective(60.0f, m_w / static_cast<float>(m_h),
+        std::max(1.0e-4f, radius * 1.0e-3f), std::max(100.0f, radius * 8.0f));
     initFBO();
+    fitViewToBounds();
     update();
 }
 
@@ -160,7 +169,8 @@ void OpenGLWidgetMeshAbr::keyReleaseEvent(QKeyEvent* event)
 }
 void OpenGLWidgetMeshAbr::wheelEvent(QWheelEvent* event)
 {
-    m_detZ += event->delta() / 100.0f;
+    const float steps = event->angleDelta().y() / 120.0f;
+    m_zoom = std::clamp(m_zoom * std::pow(1.15f, steps), 0.03f, 30.0f);
     update();
 }
 
@@ -341,9 +351,12 @@ void OpenGLWidgetMeshAbr::updateRotationCenter(const QPoint& pos)
 void OpenGLWidgetMeshAbr::initMatrix()
 {
     m_model.setToIdentity();
+    m_zoom = 1.0f;
     m_viewInit.lookAt(QVector3D(0, 0, -3), QVector3D(0, 0, 0), QVector3D(0, 1, 0));
     m_viewRotation.setToIdentity();
     m_rotationCenter = QVector3D(0.f, 0.f, 0.f);
+    if (m_hasBounds)
+        fitViewToBounds();
     //QMatrix4x4 QMatrix4x4::lookAt(
     //    const QVector3D & eye,    // 摄像机位置
     //    const QVector3D & center, // 观察目标点
@@ -400,9 +413,14 @@ void OpenGLWidgetMeshAbr::renderFBO()
     glReadBuffer(GL_COLOR_ATTACHMENT1);
     attch1.resize(SCR_WIDTH * SCR_HEIGHT * 4);
     glReadPixels(0, 0, SCR_WIDTH, SCR_HEIGHT, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, attch1.data());
+    std::vector<uchar> colorPixels(static_cast<size_t>(SCR_WIDTH) * SCR_HEIGHT * 4);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glReadPixels(0, 0, SCR_WIDTH, SCR_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, colorPixels.data());
     fids.resize(SCR_WIDTH * SCR_HEIGHT, UINT_MAX);
     for (uint32_t i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
         uint32_t id = i * 4;
+        if (colorPixels[id + 3] == 0)
+            continue;
         if (((int)attch1[id + 0] + (int)attch1[id + 1] + (int)attch1[id + 2] + (int)attch1[id + 3]) == 0)
             continue;
         uchar r = attch1[id + 0];
@@ -498,10 +516,13 @@ void OpenGLWidgetMeshAbr::renderWindows()
 
 void OpenGLWidgetMeshAbr::genTexture2D(QImage& _qImg, GLuint& _texId)
 {
+    if (_texId == 0 || _qImg.isNull() || _qImg.width() <= 0 || _qImg.height() <= 0)
+        return;
+    const QImage uploadImage = _qImg.convertToFormat(QImage::Format_RGBA8888);
     glBindTexture(GL_TEXTURE_2D, _texId);
     // 加载纹理图片（Qt可使用QImage，OpenGL用stb_image）
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, _qImg.width(), _qImg.height(),
-        0, GL_RGBA, GL_UNSIGNED_BYTE, _qImg.bits());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, uploadImage.width(), uploadImage.height(),
+        0, GL_RGBA, GL_UNSIGNED_BYTE, uploadImage.constBits());
     glGenerateMipmap(GL_TEXTURE_2D);
     // 7. 设置纹理采样参数（关键！否则纹理全黑）
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -641,6 +662,14 @@ OpenGLWidgetPly::~OpenGLWidgetPly()
 
 void OpenGLWidgetPly::setVertices(const float* const _vtcs, unsigned long long _sz)
 {
+    if (_vtcs == nullptr || _sz == 0)
+    {
+        m_vSize = 0;
+        m_verticesDefault.clear();
+        m_vertices = nullptr;
+        m_hasBounds = false;
+        return;
+    }
     m_vSize = _sz * m_vtxStep;
     m_verticesDefault.assign(m_vSize, -1);
     m_vertices = m_verticesDefault.data();
@@ -650,6 +679,23 @@ void OpenGLWidgetPly::setVertices(const float* const _vtcs, unsigned long long _
         m_verticesDefault[m_vtxStep * i + 1] = _vtcs[3 * i + 1];
         m_verticesDefault[m_vtxStep * i + 2] = _vtcs[3 * i + 2];
     }
+    QVector3D minPoint(m_verticesDefault[0], m_verticesDefault[1], m_verticesDefault[2]);
+    QVector3D maxPoint = minPoint;
+    for (unsigned long long i = 1; i < _sz; ++i)
+    {
+        const QVector3D point(m_verticesDefault[m_vtxStep * i], m_verticesDefault[m_vtxStep * i + 1],
+            m_verticesDefault[m_vtxStep * i + 2]);
+        minPoint.setX(std::min(minPoint.x(), point.x()));
+        minPoint.setY(std::min(minPoint.y(), point.y()));
+        minPoint.setZ(std::min(minPoint.z(), point.z()));
+        maxPoint.setX(std::max(maxPoint.x(), point.x()));
+        maxPoint.setY(std::max(maxPoint.y(), point.y()));
+        maxPoint.setZ(std::max(maxPoint.z(), point.z()));
+    }
+    m_boundsCenter = (minPoint + maxPoint) * 0.5f;
+    m_boundsRadius = std::max((maxPoint - minPoint).length() * 0.5f, 1.0e-3f);
+    m_hasBounds = true;
+    fitViewToBounds();
 }
 void OpenGLWidgetPly::setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz)
 {
@@ -657,8 +703,29 @@ void OpenGLWidgetPly::setVerticesTexture(const float* const _vtcs, const float* 
 }
 void OpenGLWidgetPly::setIndices(const unsigned int* _inds, unsigned long long _sz)
 {
-    m_indices = _inds;
-    m_iSize = _sz * 3;
+	if (_inds == nullptr || _sz == 0)
+	{
+		m_iSize = 0;
+		m_indicesDefault.clear();
+		m_indices = nullptr;
+		return;
+	}
+	m_iSize = _sz * 3;
+	m_indicesDefault.assign(_inds, _inds + m_iSize);
+	m_indices = m_indicesDefault.data();
+}
+
+void OpenGLWidgetMeshAbr::fitViewToBounds()
+{
+    if (!m_hasBounds)
+        return;
+
+    const float radius = std::max(m_boundsRadius, 1.0e-3f);
+    const float distance = radius * 2.5f;
+    m_viewInit.setToIdentity();
+    m_viewInit.lookAt(m_boundsCenter + QVector3D(0.0f, 0.0f, -distance),
+        m_boundsCenter, QVector3D(0.0f, 1.0f, 0.0f));
+    m_rotationCenter = m_boundsCenter;
 }
 
 
@@ -680,8 +747,9 @@ void OpenGLWidgetPly::updateMatrixAndUBO()
     mTmp.translate(m_rotationCenter);
     mTmp *= m_viewRotation;
     mTmp.translate(-m_rotationCenter);
+    mTmp.scale(m_zoom);
     QMatrix4x4 pan;
-    pan.translate(-m_detX, m_detY, m_detZ);
+    pan.translate(-m_detX, m_detY, 0.0f);
     mTmp = pan * mTmp;
     m_view = m_viewInit * mTmp;
     // 传递矩阵到Shader
@@ -760,6 +828,15 @@ OpenGLWidgetObj::~OpenGLWidgetObj()
 
 void OpenGLWidgetObj::setVerticesTexture(const float* const _vtcs, const float* const _uvs, const QImage& _img, unsigned long long _sz)
 {
+    if (_vtcs == nullptr || _uvs == nullptr || _sz == 0)
+    {
+        m_vSize = 0;
+        m_verticesDefault.clear();
+        m_vertices = nullptr;
+        m_texture = QImage();
+        m_hasBounds = false;
+        return;
+    }
     m_vSize = _sz * m_vtxStep;
     m_verticesDefault.assign(m_vSize, -1);
     m_vertices = m_verticesDefault.data();
@@ -772,6 +849,174 @@ void OpenGLWidgetObj::setVerticesTexture(const float* const _vtcs, const float* 
         m_verticesDefault[m_vtxStep * i + 4] = _uvs[2 * i + 1];
     }
     m_texture = _img;
+    QVector3D minPoint(m_verticesDefault[0], m_verticesDefault[1], m_verticesDefault[2]);
+    QVector3D maxPoint = minPoint;
+    for (unsigned long long i = 1; i < _sz; ++i)
+    {
+        const QVector3D point(m_verticesDefault[m_vtxStep * i], m_verticesDefault[m_vtxStep * i + 1],
+            m_verticesDefault[m_vtxStep * i + 2]);
+        minPoint.setX(std::min(minPoint.x(), point.x()));
+        minPoint.setY(std::min(minPoint.y(), point.y()));
+        minPoint.setZ(std::min(minPoint.z(), point.z()));
+        maxPoint.setX(std::max(maxPoint.x(), point.x()));
+        maxPoint.setY(std::max(maxPoint.y(), point.y()));
+        maxPoint.setZ(std::max(maxPoint.z(), point.z()));
+    }
+    m_boundsCenter = (minPoint + maxPoint) * 0.5f;
+    m_boundsRadius = std::max((maxPoint - minPoint).length() * 0.5f, 1.0e-3f);
+    m_hasBounds = true;
+    fitViewToBounds();
+}
+
+void OpenGLWidgetObj::setHoverTexturePreviewCallback(HoverTexturePreviewCallback callback)
+{
+    hoverTexturePreviewCallback_ = std::move(callback);
+    setMouseTracking(true);
+    connect(&hoverPreviewTimer_, &QTimer::timeout, this, &OpenGLWidgetObj::updateHoverTexturePreview,
+        Qt::UniqueConnection);
+    hoverPreviewTimer_.setSingleShot(true);
+}
+
+void OpenGLWidgetObj::mouseMoveEvent(QMouseEvent* event)
+{
+    OpenGLWidgetPly::mouseMoveEvent(event);
+    hoverPreviewPos_ = event->pos();
+    if (hoverTexturePreviewCallback_)
+        hoverPreviewTimer_.start(180);
+}
+
+void OpenGLWidgetObj::leaveEvent(QEvent* event)
+{
+    hoverPreviewTimer_.stop();
+    if (hoverTexturePreviewCallback_)
+        hoverTexturePreviewCallback_(QImage(), -1, QPointF(-1.0, -1.0));
+    OpenGLWidgetPly::leaveEvent(event);
+}
+
+void OpenGLWidgetObj::updateHoverTexturePreview()
+{
+    if (!hoverTexturePreviewCallback_)
+        return;
+    const auto clearPreview = [this]() { hoverTexturePreviewCallback_(QImage(), -1, QPointF(-1.0, -1.0)); };
+    if (m_texture.isNull() || m_indices == nullptr || m_iSize < 3 || m_w <= 0 || m_h <= 0)
+    {
+        clearPreview();
+        return;
+    }
+
+    const int x = std::clamp(hoverPreviewPos_.x(), 0, m_w - 1);
+    const int y = std::clamp(hoverPreviewPos_.y(), 0, m_h - 1);
+    const size_t fboIndex = static_cast<size_t>(m_h - y - 1) * static_cast<size_t>(m_w) + x;
+    if (fboIndex >= fids.size())
+    {
+        clearPreview();
+        return;
+    }
+    const uint faceId = fids[fboIndex];
+    if (faceId == UINT_MAX || faceId * 3 + 2 >= static_cast<uint>(m_iSize))
+    {
+        clearPreview();
+        return;
+    }
+
+    float minU = 1.0f, maxU = 0.0f, minV = 1.0f, maxV = 0.0f;
+    QPointF screenPoints[3];
+    const QMatrix4x4 mvp = m_projection * m_view * m_model;
+    for (int corner = 0; corner < 3; ++corner)
+    {
+        const uint vertexId = m_indices[faceId * 3 + corner];
+        if (vertexId * m_vtxStep + 4 >= static_cast<uint>(m_vSize))
+        {
+            clearPreview();
+            return;
+        }
+        const float u = m_vertices[vertexId * m_vtxStep + 3];
+        const float v = m_vertices[vertexId * m_vtxStep + 4];
+        if (!std::isfinite(u) || !std::isfinite(v))
+        {
+            clearPreview();
+            return;
+        }
+        minU = std::min(minU, u);
+        maxU = std::max(maxU, u);
+        minV = std::min(minV, v);
+        maxV = std::max(maxV, v);
+
+        const QVector4D clip = mvp * QVector4D(
+            m_vertices[vertexId * m_vtxStep],
+            m_vertices[vertexId * m_vtxStep + 1],
+            m_vertices[vertexId * m_vtxStep + 2], 1.0f);
+        if (std::abs(clip.w()) < 1e-6f)
+        {
+            clearPreview();
+            return;
+        }
+        const QVector3D ndc = clip.toVector3DAffine();
+        screenPoints[corner] = QPointF((ndc.x() + 1.0f) * 0.5f * m_w,
+            (1.0f - ndc.y()) * 0.5f * m_h);
+    }
+
+    const int imageWidth = m_texture.width();
+    const int imageHeight = m_texture.height();
+    const double denominator = (screenPoints[1].y() - screenPoints[2].y()) *
+        (screenPoints[0].x() - screenPoints[2].x()) +
+        (screenPoints[2].x() - screenPoints[1].x()) *
+        (screenPoints[0].y() - screenPoints[2].y());
+    float centerU = (minU + maxU) * 0.5f;
+    float centerV = (minV + maxV) * 0.5f;
+    if (std::abs(denominator) <= 1e-6)
+    {
+        clearPreview();
+        return;
+    }
+    const double w0 = ((screenPoints[1].y() - screenPoints[2].y()) *
+            (hoverPreviewPos_.x() - screenPoints[2].x()) +
+            (screenPoints[2].x() - screenPoints[1].x()) *
+            (hoverPreviewPos_.y() - screenPoints[2].y())) / denominator;
+    const double w1 = ((screenPoints[2].y() - screenPoints[0].y()) *
+            (hoverPreviewPos_.x() - screenPoints[2].x()) +
+            (screenPoints[0].x() - screenPoints[2].x()) *
+            (hoverPreviewPos_.y() - screenPoints[2].y())) / denominator;
+    const double w2 = 1.0 - w0 - w1;
+    if (w0 < -0.05 || w1 < -0.05 || w2 < -0.05)
+    {
+        clearPreview();
+        return;
+    }
+    {
+        centerU = static_cast<float>(w0 * m_vertices[m_indices[faceId * 3] * m_vtxStep + 3] +
+                w1 * m_vertices[m_indices[faceId * 3 + 1] * m_vtxStep + 3] +
+                w2 * m_vertices[m_indices[faceId * 3 + 2] * m_vtxStep + 3]);
+        centerV = static_cast<float>(w0 * m_vertices[m_indices[faceId * 3] * m_vtxStep + 4] +
+                w1 * m_vertices[m_indices[faceId * 3 + 1] * m_vtxStep + 4] +
+                w2 * m_vertices[m_indices[faceId * 3 + 2] * m_vtxStep + 4]);
+    }
+    centerU = std::clamp(centerU, 0.0f, 1.0f);
+    centerV = std::clamp(centerV, 0.0f, 1.0f);
+    const int cropWidth = std::max(320, static_cast<int>(std::ceil((maxU - minU) * imageWidth * 2.5f)));
+    const int cropHeight = std::max(240, static_cast<int>(std::ceil((maxV - minV) * imageHeight * 2.5f)));
+    const int centerX = static_cast<int>(std::lround(centerU * imageWidth));
+    const int centerY = static_cast<int>(std::lround((1.0f - centerV) * imageHeight));
+    const int left = centerX - cropWidth / 2;
+    const int top = centerY - cropHeight / 2;
+    const int right = left + cropWidth;
+    const int bottom = top + cropHeight;
+    const QRect crop = QRect(left, top, right - left, bottom - top).intersected(m_texture.rect());
+    if (crop.width() < 2 || crop.height() < 2)
+    {
+        clearPreview();
+        return;
+    }
+    QImage preview = m_texture.copy(crop).convertToFormat(QImage::Format_RGB32);
+    QPainter painter(&preview);
+    painter.setPen(QPen(Qt::red, std::max(2, std::min(preview.width(), preview.height()) / 120)));
+    const QRectF faceRect(
+        minU * imageWidth - crop.left(),
+        (1.0f - maxV) * imageHeight - crop.top(),
+        std::max(1.0f, (maxU - minU) * imageWidth),
+        std::max(1.0f, (maxV - minV) * imageHeight));
+    painter.drawRect(faceRect);
+    hoverTexturePreviewCallback_(preview, static_cast<int>(faceId), QPointF(centerU, centerV));
 }
 
 
@@ -788,6 +1033,8 @@ void OpenGLWidgetObj::setAttribute()
 void OpenGLWidgetObj::initTexture()
 {
     // 2. 加载纹理图片
+    if (m_texture.isNull())
+        return;
     glGenTextures(1, &m_textureID);
     QImage imgOpengl = m_texture.convertToFormat(QImage::Format_RGBA8888).mirrored(false, true);
     genTexture2D(imgOpengl, m_textureID);
@@ -795,7 +1042,7 @@ void OpenGLWidgetObj::initTexture()
 void OpenGLWidgetObj::drawFBO()
 {
     glActiveTexture(GL_TEXTURE0); // 激活纹理单元0（默认）
-    if (m_bDrawTexture)
+    if (m_bDrawTexture && m_textureID != 0)
         glBindTexture(GL_TEXTURE_2D, m_textureID);
     else
         glBindTexture(GL_TEXTURE_2D, m_textureIDDefault);
@@ -816,9 +1063,17 @@ void OpenGLWidgetObj::drawFBO()
 MyOpenGLWidgetTs::MyOpenGLWidgetTs(int _w, int _h, QWidget* parent)
     :OpenGLWidgetObj(_w, _h, parent)
 {
+    setMouseTracking(true);
+    connect(&previewTimer_, &QTimer::timeout, this, &MyOpenGLWidgetTs::updateTexturePreview);
+    previewTimer_.setSingleShot(true);
     std::string sPath = SHADERPATH;
     m_vPath = sPath + "/vShaderTs.vert";
     m_fPath = sPath + "/fShaderFBO.frag";
+}
+
+void MyOpenGLWidgetTs::setTexturePreviewCallback(TexturePreviewCallback callback)
+{
+    texturePreviewCallback_ = std::move(callback);
 }
 MyOpenGLWidgetTs::~MyOpenGLWidgetTs()
 {
@@ -829,14 +1084,173 @@ void MyOpenGLWidgetTs::setData(const std::vector<COMMON_LYJ::Pose3D>& _Tcws, con
 {
     Tcws_ = _Tcws;
     cams_ = _cams;
-    int sz = _Tcws.size();
+    curId_ = 0;
+    const size_t sz = Tcws_.size();
+    comImgs_.clear();
+    pValids_.clear();
+    if (sz == 0 || _comImgs.empty() || _pValids.empty())
+        return;
     comImgs_.resize(sz);
     pValids_.resize(sz);
-    for (int i = 0; i < sz; ++i)
+    previewImages_.clear();
+    for (size_t i = 0; i < sz; ++i)
     {
-        comImgs_[i] = const_cast<COMMON_LYJ::CompressedImage*>(&_comImgs[i]);
-        pValids_[i] = const_cast<COMMON_LYJ::BitFlagVec*>(&_pValids[i]);
+        comImgs_[i] = _comImgs[std::min(i, _comImgs.size() - 1)];
+        pValids_[i] = _pValids[std::min(i, _pValids.size() - 1)];
     }
+}
+
+void MyOpenGLWidgetTs::mouseMoveEvent(QMouseEvent* event)
+{
+    OpenGLWidgetObj::mouseMoveEvent(event);
+    previewPos_ = event->pos();
+    previewTimer_.start(previewDelayMs_);
+}
+
+void MyOpenGLWidgetTs::leaveEvent(QEvent* event)
+{
+    previewTimer_.stop();
+    if (texturePreviewCallback_)
+        texturePreviewCallback_(QImage(), -1, QPointF(-1.0, -1.0));
+    OpenGLWidgetObj::leaveEvent(event);
+}
+
+namespace
+{
+    bool projectTexturePoint(const COMMON_LYJ::Pose3D& pose,
+        const QT_LYJ::ProjectorCamera& camera, const float* point, QPointF& pixel)
+    {
+        Eigen::Vector3d world(point[0], point[1], point[2]);
+        Eigen::Vector3d cameraPoint = pose.getR() * world + pose.gett();
+        if (cameraPoint.z() <= 1e-6 || camera.width <= 0 || camera.height <= 0)
+            return false;
+
+        double nx = cameraPoint.x() / cameraPoint.z();
+        double ny = cameraPoint.y() / cameraPoint.z();
+        if (camera.model == QT_LYJ::ProjectorCameraModel::Fisheye)
+        {
+            const double radius = std::hypot(nx, ny);
+            if (radius > 1e-12)
+            {
+                const double theta = std::atan(radius);
+                const double theta2 = theta * theta;
+                const double theta4 = theta2 * theta2;
+                const double theta6 = theta4 * theta2;
+                const double theta8 = theta4 * theta4;
+                const double distorted = theta * (1.0 + camera.parameters[4] * theta2
+                    + camera.parameters[5] * theta4 + camera.parameters[6] * theta6
+                    + camera.parameters[7] * theta8);
+                const double scale = distorted / radius;
+                nx *= scale;
+                ny *= scale;
+            }
+        }
+
+        pixel = QPointF(camera.parameters[0] * nx + camera.parameters[2],
+            camera.parameters[1] * ny + camera.parameters[3]);
+        return true;
+    }
+}
+
+void MyOpenGLWidgetTs::updateTexturePreview()
+{
+    if (!texturePreviewCallback_)
+        return;
+    const auto clearPreview = [this]() { texturePreviewCallback_(QImage(), -1, QPointF(-1.0, -1.0)); };
+    if (Tcws_.empty() || cams_.empty() || comImgs_.empty() || m_indices == nullptr ||
+        m_iSize < 3 || m_w <= 0 || m_h <= 0)
+    {
+        clearPreview();
+        return;
+    }
+
+    const int x = std::clamp(previewPos_.x(), 0, m_w - 1);
+    const int y = std::clamp(previewPos_.y(), 0, m_h - 1);
+    const size_t fboIndex = static_cast<size_t>(m_h - y - 1) * static_cast<size_t>(m_w) + x;
+    if (fboIndex >= fids.size())
+    {
+        clearPreview();
+        return;
+    }
+    const uint faceId = fids[fboIndex];
+    if (faceId == UINT_MAX || faceId * 3 + 2 >= static_cast<uint>(m_iSize))
+    {
+        clearPreview();
+        return;
+    }
+
+    const size_t frameId = std::min<size_t>(curId_, comImgs_.size() - 1);
+    const size_t cameraId = cams_.size() == 1 ? 0 : std::min(frameId, cams_.size() - 1);
+    const QT_LYJ::ProjectorCamera& camera = cams_[cameraId];
+    if (previewImages_.size() <= frameId)
+        previewImages_.resize(frameId + 1);
+    if (previewImages_[frameId].isNull())
+    {
+        cv::Mat cvImage;
+        bool decoded = false;
+        try { decoded = comImgs_[frameId].decompressCVMat(cvImage); }
+        catch (const std::exception&) { decoded = false; }
+        if (!decoded)
+        {
+            clearPreview();
+            return;
+        }
+        cvMat3CToQImageRGB32(cvImage, previewImages_[frameId]);
+    }
+    const QImage& image = previewImages_[frameId];
+    if (image.isNull())
+    {
+        clearPreview();
+        return;
+    }
+
+    QPointF projected[3];
+    QRectF bounds;
+    bool valid = true;
+    for (int corner = 0; corner < 3; ++corner)
+    {
+        const uint vertexId = m_indices[faceId * 3 + corner];
+        if (vertexId * m_vtxStep + 2 >= static_cast<uint>(m_vSize) ||
+            !projectTexturePoint(Tcws_[curId_], camera,
+                &m_vertices[vertexId * m_vtxStep], projected[corner]))
+        {
+            valid = false;
+            break;
+        }
+        if (corner == 0)
+            bounds = QRectF(projected[corner], QSizeF(0, 0));
+        else
+            bounds = bounds.united(QRectF(projected[corner], QSizeF(0, 0)));
+    }
+    if (!valid)
+    {
+        clearPreview();
+        return;
+    }
+
+    const double margin = std::max(24.0, std::max(bounds.width(), bounds.height()) * 0.35);
+    QRect crop(static_cast<int>(std::floor(bounds.left() - margin)),
+        static_cast<int>(std::floor(bounds.top() - margin)),
+        static_cast<int>(std::ceil(bounds.width() + margin * 2.0)),
+        static_cast<int>(std::ceil(bounds.height() + margin * 2.0)));
+    crop = crop.intersected(image.rect());
+    if (crop.width() < 2 || crop.height() < 2)
+    {
+        clearPreview();
+        return;
+    }
+
+    QImage preview = image.copy(crop).convertToFormat(QImage::Format_RGB32);
+    QPainter painter(&preview);
+    painter.setPen(QPen(Qt::red, std::max(2, std::min(preview.width(), preview.height()) / 120)));
+    const QRectF faceRect(
+        bounds.left() - crop.left(), bounds.top() - crop.top(),
+        std::max(1.0, bounds.width()), std::max(1.0, bounds.height()));
+    painter.drawRect(faceRect);
+    const QPointF uvCenter(
+        std::clamp(bounds.center().x() / static_cast<qreal>(camera.width), 0.0, 1.0),
+        std::clamp(bounds.center().y() / static_cast<qreal>(camera.height), 0.0, 1.0));
+    texturePreviewCallback_(preview, static_cast<int>(faceId), uvCenter);
 }
 
 
@@ -868,6 +1282,8 @@ void MyOpenGLWidgetTs::keyPressEvent(QKeyEvent* event)
         break;
     }
     QOpenGLWidget::keyPressEvent(event);
+    if (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right)
+        previewTimer_.start(0);
     update();
 }
 
@@ -885,13 +1301,20 @@ void MyOpenGLWidgetTs::setAttribute()
 void MyOpenGLWidgetTs::initTexture()
 {
     // 2. 加载纹理图片
-    int sz = Tcws_.size();
+    const int sz = static_cast<int>(std::min(Tcws_.size(), comImgs_.size()));
+    if (sz <= 0)
+        return;
+    previewImages_.resize(sz);
     textures_.resize(sz, 0);
     glGenTextures(sz, textures_.data());
     for (int i = 0; i < sz; ++i)
     {
         cv::Mat cvM;
-        comImgs_[i]->decompressCVMat(cvM);
+        bool decoded = false;
+        try { decoded = comImgs_[i].decompressCVMat(cvM); }
+        catch (const std::exception&) { decoded = false; }
+        if (!decoded)
+            continue;
         QImage image;
         cvMat3CToQImageRGB32(cvM, image);
         QImage imgOpengl = image.convertToFormat(QImage::Format_RGBA8888).mirrored(false, true);
@@ -906,8 +1329,9 @@ void MyOpenGLWidgetTs::updateMatrixAndUBO()
     mTmp.translate(m_rotationCenter);
     mTmp *= m_viewRotation;
     mTmp.translate(-m_rotationCenter);
+    mTmp.scale(m_zoom);
     QMatrix4x4 pan;
-    pan.translate(-m_detX, m_detY, m_detZ);
+    pan.translate(-m_detX, m_detY, 0.0f);
     mTmp = pan * mTmp;
     m_view = m_viewInit * mTmp;
     COMMON_LYJ::Pose3D T = Tcws_[curId_];
@@ -919,11 +1343,16 @@ void MyOpenGLWidgetTs::updateMatrixAndUBO()
         }
         m_model(i, 3) = T.gett()(i);
     }
-    const QT_LYJ::ProjectorCamera& camera = cams_[cams_.size() == 1 ? 0 : curId_];
-    int pVSz = pValids_[curId_]->size();
+    if (Tcws_.empty() || cams_.empty() || comImgs_.empty() || pValids_.empty() ||
+        curId_ >= Tcws_.size() || curId_ >= pValids_.size())
+        return;
+    const size_t cameraId = cams_.size() == 1 ? 0 : std::min<size_t>(curId_, cams_.size() - 1);
+    const QT_LYJ::ProjectorCamera& camera = cams_[cameraId];
+    const int pVSz = static_cast<int>(std::min<size_t>(pValids_[curId_].size(),
+        static_cast<size_t>(m_vSize / m_vtxStep)));
     for (int i = 0; i < pVSz; ++i)
     {
-        if ((*pValids_[curId_])[i])
+        if (pValids_[curId_][i])
             m_vertices[i * m_vtxStep + 3] = 1;
         else
             m_vertices[i * m_vtxStep + 3] = -1;
@@ -940,7 +1369,7 @@ void MyOpenGLWidgetTs::updateMatrixAndUBO()
 void MyOpenGLWidgetTs::drawFBO()
 {
     glActiveTexture(GL_TEXTURE0); // 激活纹理单元0（默认）
-    if (m_bDrawTexture)
+    if (m_bDrawTexture && curId_ < textures_.size() && textures_[curId_] != 0)
         glBindTexture(GL_TEXTURE_2D, textures_[curId_]);
     else
         glBindTexture(GL_TEXTURE_2D, m_textureIDDefault);
