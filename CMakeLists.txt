@@ -244,7 +244,7 @@ if(DEFINED ${PROJECT_NAME}_LIBRARY_OUTPUT_PATH)
 endif()
 
 # ################################example##################################
-add_executable(${PROJECT_NAME}Bin example/VulkanQtMain.cpp)
+add_executable(${PROJECT_NAME}Bin example/main.cpp)
 target_include_directories(${PROJECT_NAME}Bin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${${PROJECT_NAME}_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME}Bin PRIVATE ${PROJECT_NAME} ${${PROJECT_NAME}_LIBRARIES})
 
